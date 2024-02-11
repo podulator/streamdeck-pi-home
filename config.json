@@ -193,7 +193,7 @@
                     },
                     {
                         "name": "update",
-                        "command": "git pull | tail -n 1",
+                        "command": "/usr/bin/bash ./update.sh",
                         "template": "{}"
                     },
                     {

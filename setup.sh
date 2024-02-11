@@ -30,7 +30,7 @@ echo "ExecStart=-/sbin/agetty --noclear --autologin ${USER} %I $TERM" | sudo tee
 if [[ ! -d venv ]]; then
 	python -m venv venv
 	source ./venv/bin/activate
- 	pip install wheel
+	pip install -U wheel pip 2>/dev/null
 	pip install -r requirements.txt
 fi
 

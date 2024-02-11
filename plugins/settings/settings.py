@@ -17,7 +17,7 @@ class SettingsPlugin(IPlugin):
 		SAVE = 6
 		BLANK_1 = 7
 
-	image_keys = [ 
+	image_keys : list[str] = [ 
 		"update.png", 
 		"reboot.png", 
 		"power-off.png", 
@@ -54,16 +54,16 @@ class SettingsPlugin(IPlugin):
 
 		return self._activated
 
-	def deactivate(self):
+	def deactivate(self) -> None:
 		super().deactivate()
     
-	def destroy(self):
+	def destroy(self) -> None:
 		super().destroy()
 
 	def run_as_daemon(self) -> None:
 		pass
 
-	def on_button_press(self, deck, key, key_state):
+	def on_button_press(self, deck, key, key_state) -> None:
 		super().on_button_press(deck, key, key_state)
 
 		if not key_state: 
@@ -96,13 +96,13 @@ class SettingsPlugin(IPlugin):
 				self._log.debug("unknown button pressed")
 				return
 
-	def on_dial_turned(self, deck, dial, value):
+	def on_dial_turned(self, deck, dial, value) -> None:
 		super().on_dial_turned(deck, dial, value)
 
-	def _update_state(self):
+	def _update_state(self) -> None:
 		self._render("Settings", self._font["font_size"])
 
-	def _run_reload(self):
+	def _run_reload(self) -> None:
 		try:
 			self._notify("Reloading...\nPlease wait...", True)
 			self._app.destroy()
@@ -110,52 +110,49 @@ class SettingsPlugin(IPlugin):
 			pass
 		sys.exit(0)
 
-	def _run_info(self):
-		command = self._get_command_by_name("info")
-		result = self._command_runner(command)
+	def _run_info(self) -> None:
+		result = self._command_runner("info")
 		self._log.debug(result)
 		self._notify(f"{result}", True)
 
-	def _run_power_off(self):
+	def _run_power_off(self) -> None:
 		self._notify("Powering off...\nPlease wait...", True)
-		command = self._get_command_by_name("shutdown")
-		result = self._command_runner(command)
+		result = self._command_runner("shutdown")
 		self._log.debug(result)
 		self._notify(f"Power off: \n{result}", False)
 
-	def _run_reboot(self):
+	def _run_reboot(self) -> None:
 		self._notify("Rebooting...\nPlease wait...", True)
-		command = self._get_command_by_name("reboot")
-		result = self._command_runner(command)
+		result = self._command_runner("reboot")
 		self._log.debug(result)
 		self._notify(f"Reboot: \n{result}", False)
 
-	def _run_update(self):
+	def _run_update(self) -> None:
 		self._notify("Updating...\nPlease wait...", True)
-		command = self._get_command_by_name("update")
-		result = self._command_runner(command)
+		result : str = self._command_runner("update")
 		self._log.debug(result)
-		self._notify(f"Update: \n{result}", False)
+		self._notify(f"Update: {result}", False)
 
-	def _get_command_by_name(self, name) -> dict:
+	def _get_command_by_name(self, name : str) -> dict:
 		for command in self._config["commands"]:
 			if command["name"] == name:
 				return command
 		return None
 
-	def _command_runner(self, command : dict) -> str:
+	def _command_runner(self, name: str) -> str:
 
-		cmd = command.get("command", None)
-		template = command.get("template", None)
+		command : dict = self._get_command_by_name(name)
+		cmd : str = command.get("command", None)
+		template : str = command.get("template", None)
 		if not cmd or not template:
 			return "No command or template"
 
 		result = subprocess.run(
 			cmd,
-			stdout=subprocess.PIPE,
-			stderr=subprocess.PIPE,
-			shell=True,
-			encoding='utf-8'
+			stdout = subprocess.PIPE,
+			stderr = subprocess.PIPE,
+			shell = True,
+			encoding = 'utf-8'
 		)
 		cleaned : str = [line.strip() for line in result.stdout.split(os.linesep) if line.strip()]
 		match result.returncode:
@@ -164,7 +161,7 @@ class SettingsPlugin(IPlugin):
 					return template.format("Great success!")
 				return os.linesep.join(cleaned)
 			case _:
-				return f"Returned {result.returncode}"
+				return f"Error {result.returncode}\n{os.linesep.join(cleaned).strip()}"
 
 	def _notify(self, message : str, keep : bool = False):
 		self._render(message, self._font["font_size"])

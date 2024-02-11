@@ -1,0 +1,307 @@
+{
+    "debug": 1,
+    "creds_path": ".creds",
+    "brightness": {
+        "minimum": 10,
+        "press_to_wake": 30
+    },
+    "font": {
+        "font_path": "font/StreamdeckTerminator.ttf",
+        "font_size": 80,
+        "background_color": "black"
+    },
+    "plugins": [
+        {
+            "name": "Living Cube",
+            "class": "firetv",
+            "config": {
+                "ip_address": "${STREAMDECK_FIRE_TV_IP}",
+                "port": "${STREAMDECK_FIRE_TV_PORT}",
+                "key_file_name": "living-fire-cube-adbkey",
+                "packages": [
+                    {
+                        "package": "org.xbmc.kodi",
+                        "icon": "kodi.png"
+                    },
+                    {
+                        "package": "org.jellyfin.androidtv",
+                        "icon": "jellyfin.png"
+                    },
+                    {
+                        "package": "org.schabi.newpipe",
+                        "icon": "newpipe.png"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Internet Radio",
+            "class": "radio",
+            "config": {
+                "bookmarks": [
+                    {
+                        "name": "Cybernetic Broadcasting System",
+                        "url": "http://radio.intergalactic.fm:80/1"
+                    },
+                    {
+                        "name": "Disco Fetish",
+                        "url": "http://radio.intergalactic.fm:80/2"
+                    },
+                    {
+                        "name": "The Dream Machine",
+                        "url": "http://radio.intergalactic.fm:80/3"
+                    },
+                    {
+                        "name": "NTS",
+                        "url": "http://stream-relay-geo.ntslive.net/stream?client=NTSWebApp"
+                    },
+                    {
+                        "name": "Stegi Radio",
+                        "url": "http://movementathens.out.airtime.pro/movementathens_a?"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Navidrome",
+            "class": "subsonic",
+            "config": {
+                "username": "${STREAMDECK_SUBSONIC_USERNAME}",
+                "password": "${STREAMDECK_SUBSONIC_PASSWORD}",
+                "ip": "${STREAMDECK_SUBSONIC_IP}",
+                "port": "${STREAMDECK_SUBSONIC_PORT}"
+            }
+        },
+        {
+            "name": "Hue Lights",
+            "class": "hue",
+            "config": {
+                "ip": "${STREAMDECK_HUE_IP}",
+                "shortcut": {
+                    "group": "living lamps",
+                    "scenes": [
+                        "Nightlight",
+                        "Bright"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Tado Heating",
+            "class": "tado",
+            "config": {
+                "username": "${STREAMDECK_TADO_USERNAME}",
+                "password": "${STREAMDECK_TADO_PASSWORD}"
+            }
+        },
+        {
+            "name": "Velux",
+            "class": "velux",
+            "config": {
+                "homekit_file": "velux.json",
+                "homekit_alias": "velux",
+                "zones": [
+                    {
+                        "name": "Info",
+                        "accessories": [
+                            {
+                                "id": 1,
+                                "name": "Gateway"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Sensors",
+                        "accessories": [
+                            {
+                                "id": 2,
+                                "name": "Sensor"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Office",
+                        "accessories": [
+                            {
+                                "id": 5,
+                                "name": "Office Shutter"
+                            },
+                            {
+                                "id": 6,
+                                "name": "Office Window"
+                            }
+                        ]
+                    },
+                    {
+                        "name": "Living Room",
+                        "accessories": [
+                            {
+                                "id": 3,
+                                "name": "Left Shutter"
+                            },
+                            {
+                                "id": 4,
+                                "name": "Right Shutter"
+                            },
+                            {
+                                "id": 7,
+                                "name": "Skylight"
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Core 400S air filter",
+            "class": "levoit",
+            "config": {
+                "username": "${STREAMDECK_VESYNC_USERNAME}",
+                "password": "${STREAMDECK_VESYNC_PASSWORD}",
+                "timezone": "${STREAMDECK_VESYNC_TIMEZONE}",
+                "device-name": "air"
+            }
+        },
+        {
+            "name": "Bluetooth",
+            "class": "bluetooth",
+            "config": {
+                "auto-connect": 1,
+                "preferred-device": "Blutune 200",
+                "allowed-devices": [
+                    "Blutune 200",
+                    "Majority Atlas",
+                    "WINNES-007mini",
+                    "Echo Dot-V92"
+                ]
+            }
+        },
+        {
+            "name": "Settings",
+            "class": "settings",
+            "config": {
+                "commands": [
+                    {
+                        "name": "shutdown",
+                        "command": "sudo shutdown now",
+                        "template": "{}"
+                    },
+                    {
+                        "name": "reboot",
+                        "command": "sudo reboot",
+                        "template": "{}"
+                    },
+                    {
+                        "name": "update",
+                        "command": "git pull | tail -n 1",
+                        "template": "{}"
+                    },
+                    {
+                        "name": "info",
+                        "command": "git log --abbrev-commit -n 1",
+                        "template": "{}"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "Blanker_1",
+            "class": "blank",
+            "config": {}
+        }
+    ],
+    "scrollers": [
+        {
+            "name": "my-greeeting",
+            "class": "text",
+            "config": {
+                "lines": [
+                    "Hello Mat,\nHow are you?"
+                ]
+            }
+        },
+        {
+            "name": "stocks",
+            "class": "stocks",
+            "config": {
+                "symbols": [
+                    {
+                        "name": "Amazon Inc",
+                        "symbol": "AMZN"
+                    },
+                    {
+                        "name": "Arm Holdings",
+                        "symbol": "ARM"
+                    },
+                    {
+                        "name": "Taiwan Semiconductor",
+                        "symbol": "TSM"
+                    },
+                    {
+                        "name": "VanEck Wide Moat ETF",
+                        "symbol": "MOAT.L"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "df",
+            "class": "cmd",
+            "config": {
+                "command": "df -h / --output=size,used,pcent | column -t",
+                "template": "Disk Usage - /\n{}"
+            }
+        },
+        {
+            "name": "uptime",
+            "class": "cmd",
+            "config": {
+                "command": "uptime -p | tr \",\" \"\n\" | head -n 3",
+                "template": "System {}"
+            }
+        },
+        {
+            "name": "now-weather",
+            "class": "weather",
+            "config": {
+                "mode": "now",
+                "location": "${STREAMDECK_WEATHER_LOCATION}",
+                "latitude": "${STREAMDECK_WEATHER_LATITUDE}",
+                "longitude": "${STREAMDECK_WEATHER_LONGITUDE}"
+            }
+        },
+        {
+            "name": "clock",
+            "class": "clock",
+            "config": {
+                "timezone": "Europe/Berlin",
+                "format": "%H:%M"
+            }
+        },
+        {
+            "name": "date",
+            "class": "date",
+            "config": {
+                "format": "%Y-%m-%d"
+            }
+        },
+        {
+            "name": "today-weather",
+            "class": "weather",
+            "config": {
+                "mode": "daily",
+                "location": "${STREAMDECK_WEATHER_LOCATION}",
+                "latitude": "${STREAMDECK_WEATHER_LATITUDE}",
+                "longitude": "${STREAMDECK_WEATHER_LONGITUDE}"
+            }
+        },
+        {
+            "name": "hostname",
+            "class": "cmd",
+            "config": {
+                "command": "hostname && ifconfig wlan0 | grep \"inet \" | xargs | cut -d' ' -f2",
+                "template": "Hostname : \n{}"
+            }
+        }
+    ]
+}

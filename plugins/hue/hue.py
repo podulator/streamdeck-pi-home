@@ -9,7 +9,7 @@ from typing import Tuple
 
 class HuePlugin(IPlugin):
 
-    CREDS_FILE : str = ".python_hue"
+    CREDS_FILE : str = "python_hue"
 
     class State(IntEnum):
         NONE = 0
@@ -45,7 +45,7 @@ class HuePlugin(IPlugin):
 
     FLUSH_SPEED : float = 0.3
     
-    image_keys = [ 
+    image_keys : list[str] = [ 
         "group.png", 
         "lamp.png", 
         "scenes.png", 
@@ -76,79 +76,89 @@ class HuePlugin(IPlugin):
     @property
     def config(self) -> dict:
         return self._config
+
     @property
     def lights(self) -> list[Light]:
         return self._bridge.lights
+
     @property
     def groups(self) -> list[dict]:
         return self._bridge.groups
+
     @property
     def scenes(self) -> list[dict]:
         return self._bridge.scenes
 
     def _flush(self):
         self._log.info(f"{self._class} :: flush thread started")
+
         while self._activated:
 
-            brightness = self._inc_buffer.get("brightness", 0)
-            hue = self._inc_buffer.get("hue", 0)
-            saturation = self._inc_buffer.get("saturation", 0)
+            try:
 
-            if brightness != 0 or hue != 0 or saturation != 0:
-                # reset these as fast as possible
-                self._inc_buffer["brightness"] = self._inc_buffer["hue"] = self._inc_buffer["saturation"] = 0
+                brightness = self._inc_buffer.get("brightness", 0)
+                hue = self._inc_buffer.get("hue", 0)
+                saturation = self._inc_buffer.get("saturation", 0)
 
-                brightness = max(min(254, (brightness * 10)), -254)
-                hue = max(min(254, (hue * 10)), -254)
-                saturation = max(min(254, (saturation * 10)), -254)                    
+                if brightness or hue or saturation:
+                    # reset these as fast as possible
+                    self._inc_buffer["brightness"] = self._inc_buffer["hue"] = self._inc_buffer["saturation"] = 0
 
-                match self._state:
-                    case HuePlugin.State.LIGHTS:
-                        light : Light = self.lights[self._light_index]
-                        light.brightness += brightness
-                        light.hue += hue
-                        light.saturation += saturation
+                    brightness = max(min(254, (brightness * 10)), -254)
+                    hue = max(min(254, (hue * 10)), -254)
+                    saturation = max(min(254, (saturation * 10)), -254)                    
 
-                    case HuePlugin.State.GROUPS:
-                        group : Group = self.groups[self._group_index]
-                        group.brightness += brightness
-                        group.hue += hue
-                        group.saturation += saturation
- 
-                    case _:
-                        pass  
+                    match self._state:
+                        case HuePlugin.State.LIGHTS:
+                            light : Light = self.lights[self._light_index]
+                            light.brightness += brightness
+                            light.hue += hue
+                            light.saturation += saturation
 
-            color : dict = self._inc_buffer.get("color", None)
-            if color is None:
-                return
-            red = color.get("red", 0)
-            green = color.get("green", 0)
-            blue = color.get("blue", 0)
+                        case HuePlugin.State.GROUPS:
+                            group : Group = self.groups[self._group_index]
+                            group.brightness += brightness
+                            group.hue += hue
+                            group.saturation += saturation
+    
+                        case _:
+                            pass  
 
-            if red != 0 or green != 0 or blue != 0:
-                # reset these as fast as possible
-                self._inc_buffer["color"]["red"] = self._inc_buffer["color"]["green"] = self._inc_buffer["color"]["blue"] = 0
+                color : dict = self._inc_buffer.get("color", None)
+                if color is not None:
 
-                match self._state:
-                    case HuePlugin.State.LIGHTS:
-                        light : Light = self.lights[self._light_index]
-                        if not hasattr(light, "rgb"): 
-                            return
+                    red = color.get("red", 0)
+                    green = color.get("green", 0)
+                    blue = color.get("blue", 0)
 
-                        light.rgb = [
-                            max(min(255, light.rgb[0] + red), 0), 
-                            max(min(255, light.rgb[1] + green), 0), 
-                            max(min(255, light.rgb[2] + blue), 0)
-                        ]
+                    if red != 0 or green != 0 or blue != 0:
+                        # reset these as fast as possible
+                        self._inc_buffer["color"]["red"] = self._inc_buffer["color"]["green"] = self._inc_buffer["color"]["blue"] = 0
 
-                        light.xy = self._converter.rgb_to_xy(
-                            light.rgb[0], 
-                            light.rgb[1], 
-                            light.rgb[2])
+                        match self._state:
+                            case HuePlugin.State.LIGHTS:
+                                light : Light = self.lights[self._light_index]
+                                if not hasattr(light, "rgb"): 
+                                    return
 
-                        pass
-                    case _:
-                        pass
+                                light.rgb = [
+                                    max(min(255, light.rgb[0] + red), 0), 
+                                    max(min(255, light.rgb[1] + green), 0), 
+                                    max(min(255, light.rgb[2] + blue), 0)
+                                ]
+
+                                light.xy = self._converter.rgb_to_xy(
+                                    light.rgb[0], 
+                                    light.rgb[1], 
+                                    light.rgb[2])
+
+                                pass
+                            case _:
+                                pass
+
+            except Exception as ex:
+                self._log.error(ex)
+                pass
 
             time.sleep(self.FLUSH_SPEED)
 
@@ -160,7 +170,6 @@ class HuePlugin(IPlugin):
         try:
 
             if self._bridge is None:
-
                 creds_path : str = os.path.join(self._app.creds_path, self.CREDS_FILE)
                 ip : str = self._config.get("ip", None)
                 self._bridge = Bridge(ip = ip, config_file_path = creds_path)
@@ -196,7 +205,7 @@ class HuePlugin(IPlugin):
     def deactivate(self):
         super().deactivate()
         try:
-            if (self._thread):
+            if self._thread:
                 self._thread.join()
                 self._thread = None
         except:

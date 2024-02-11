@@ -19,13 +19,16 @@ if [ ! -f ${udev_file} ]; then
 	fi
 fi
 
-# https://github.com/RPi-Distro/raspi-config/blob/master/raspi-config#L1411
-# auto login ourselves to get ready for pipewire needing a session in future
-sudo systemctl --quiet set-default multi-user.target
-sudo mkdir -p /etc/systemd/system/getty@.service.d
-echo "[Service]" | sudo tee /etc/systemd/system/getty@.service.d/override.conf > /dev/null
-echo "ExecStart=" | sudo tee -a /etc/systemd/system/getty@.service.d/override.conf > /dev/null
-echo "ExecStart=-/sbin/agetty --noclear --autologin ${USER} %I $TERM" | sudo tee -a /etc/systemd/system/getty@.service.d/override.conf > /dev/null
+if [ ! -d "/etc/systemd/system/getty@.service.d" ]; then
+	echo "Enabling autologin for pipewire sessions etc"
+	# https://github.com/RPi-Distro/raspi-config/blob/master/raspi-config#L1411
+	# auto login ourselves to get ready for pipewire needing a session in future
+	sudo systemctl --quiet set-default multi-user.target
+	sudo mkdir -p /etc/systemd/system/getty@.service.d
+	echo "[Service]" | sudo tee /etc/systemd/system/getty@.service.d/override.conf > /dev/null
+	echo "ExecStart=" | sudo tee -a /etc/systemd/system/getty@.service.d/override.conf > /dev/null
+	echo "ExecStart=-/sbin/agetty --noclear --autologin ${USER} %I ${TERM}" | sudo tee -a /etc/systemd/system/getty@.service.d/override.conf > /dev/null
+fi
 
 if [[ ! -d venv ]]; then
 	python -m venv venv

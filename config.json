@@ -1,6 +1,7 @@
 {
     "debug": 1,
     "creds_path": ".creds",
+    "idle_time_minutes": 15,
     "brightness": {
         "minimum": 10,
         "press_to_wake": 30

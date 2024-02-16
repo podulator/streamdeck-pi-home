@@ -120,7 +120,7 @@ class BluetoothManager(BluetoothCtlInterface):
                 if device.refresh():
                     available_devices.append(device)
 
-            self._log.debug(f"found {len(available_devices)} devices")
+            self._log.debug(f"Found {len(available_devices)} devices")
 
             for device in available_devices:
                 if device.connected and self._connected_device is None:

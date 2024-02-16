@@ -69,6 +69,10 @@ class IPlugin(ABC):
     def on_dial_pushed(self, deck, dial, state):
         self._log.debug(f"{self._name} :: {self._class} :: handling dial push: {dial} state: {state}")
 
+    @property
+    def idle(self) -> bool:
+        return True
+
     def handle_back_button(self) -> bool:
         """
         Returns True when it has nested pages, and pops the page. 

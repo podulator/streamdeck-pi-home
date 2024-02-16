@@ -62,6 +62,10 @@ class VlcPlayer:
         return self.state == State.Paused
     
     @property
+    def idle(self) -> bool:
+        return (self.playing == False) and (self.paused == False)
+
+    @property
     def state(self) -> State:
         if self._player is None:
             return State.NothingSpecial

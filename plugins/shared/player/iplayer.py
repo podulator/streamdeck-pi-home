@@ -99,6 +99,10 @@ class IPlayer(IPlugin):
     def run_as_daemon(self) -> None:
         pass
 
+    @property
+    def idle(self) -> bool:
+        return self._player.idle
+
     def _player_callback(self, event_type : VlcPlayerEvents, data : dict) -> None:
         if not self._running: 
             return

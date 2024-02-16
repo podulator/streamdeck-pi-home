@@ -183,6 +183,10 @@ class RadioPlugin(IPlugin):
         else:
             pass
 
+    @property
+    def idle(self) -> bool:
+        return self._player.idle
+
     def _on_player_callback(self, event_type : VlcPlayerEvents, data : dict):
         if not self._running:
             return

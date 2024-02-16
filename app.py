@@ -14,15 +14,16 @@ class App():
     LOOP_COUNTER_MAX: int = 15
 
     def __init__(self, deck: Optional[StreamDeck], config: dict) -> None:
-        self._plugins: List[IPlugin.IPlugin] = []
+        self._plugins: List[IPlugin.IPlugin] = None
         self._active_plugin: Optional[IPlugin.IPlugin] = None
-        self._scrollers: List[IScroller.IScroller] = []
+        self._scrollers: List[IScroller.IScroller] = None
         self._home_image: Optional[bytes] = None
         self._render_lock: bool = False
         self._destroyed : bool = False
         self._active_scroller: int = 0
         self._dim_counter: int = 0
         self._loop_counter: int = 0
+        self._idle_counter : int = 0
         self._brightness: int = 100
         self._deck: Optional[StreamDeck] = deck
         self._config: dict = config
@@ -74,13 +75,17 @@ class App():
         self._deck.set_key_image(index, image)
 
     def load_image(self, path: str, size: int = 100) -> bytes:
-        img = Image.new('RGB', (120, 120), color='black')
-        icon = Image.open(path).resize((size, size)).convert("RGBA")
-        border = int((120 - size) / 2)
-        img.paste(icon, (border, border), icon)
-        img_byte_arr = io.BytesIO()
-        img.save(img_byte_arr, format = 'JPEG')
-        return img_byte_arr.getvalue()
+        try:
+            img = Image.new('RGB', (120, 120), color='black')
+            icon = Image.open(path).resize((size, size)).convert("RGBA")
+            border = int((120 - size) / 2)
+            img.paste(icon, (border, border), icon)
+            img_byte_arr = io.BytesIO()
+            img.save(img_byte_arr, format = 'JPEG')
+            return img_byte_arr.getvalue()
+        except Exception as ex: 
+            self._log.error(f"Failed to load image '{path}' : {ex}")
+            return None
 
     def run(self) -> None:
         if not self._deck_available():
@@ -93,12 +98,14 @@ class App():
             self._log.info(f"Opened '{self._deck.deck_type()}' device (serial number: '{self._deck.get_serial_number()}')")
 
         font : dict = self._config["font"]
-        if len(self._plugins) == 0:
+        if self._plugins is None:
+            plugins : list[IPlugin.IPlugin] = []
             self._log.debug("Loading plugins...")
             for plug in self._config["plugins"]:
                 plugin = IPlugin.PluginFactory.create_plugin(self, plug, font)
                 plugin.run_as_daemon()
-                self._plugins.append(plugin)
+                plugins.append(plugin)
+            self._plugins = plugins
             num_plugins = len(self._plugins)
             self._log.info(f"Loaded {num_plugins} plugins")
 
@@ -113,11 +120,13 @@ class App():
             else:
                 self._num_pages = 1
 
-        if len(self._scrollers) == 0:
+        if self._scrollers is None:
+            scrollers : list[IScroller.IScroller] = []
             self._log.debug("Loading scrollers...")
             for scroller in self._config["scrollers"]:
                 scroller = IScroller.ScrollerFactory.create_scroller(self, scroller, font)
-                self._scrollers.append(scroller)
+                scrollers.append(scroller)
+            self._scrollers = scrollers
             self._log.info(f"Loaded {len(self._scrollers)} scrollers")
 
         if self._home_image is None:
@@ -131,8 +140,6 @@ class App():
             self._deck.set_brightness(self._brightness)
 
         self._default_layout()
-        self._loop_counter = App.LOOP_COUNTER_MAX
-
         threading.Thread(target=self._main_loop, daemon=True).start()
 
     def _render_scroller_image(self, b: bytes) -> None:
@@ -195,37 +202,63 @@ class App():
     def _scroll(self):
         if not self._active_plugin:
             if len(self._scrollers) > 0:
-                self._log.debug(f"Setting up scroller : {self._active_scroller}")
+                
                 scroller = self._scrollers[self._active_scroller]
                 if scroller.has_next:
                     self._render_scroller_image(scroller.next())
                 else:
+                    self._log.debug(f"Setting up scroller : {self._active_scroller + 1}")
                     self._active_scroller += 1
                     if self._active_scroller >= len(self._scrollers):
                         self._active_scroller = 0
                     self._render_scroller_image(self._scrollers[self._active_scroller].generate())
 
-    def _dim(self):
-        self._brightness = max(self._config["brightness"]["minimum"], self._brightness - 10)
+    def _dim(self, brightness_min : int):
+        self._brightness = max(brightness_min, self._brightness - 10)
         self._log.debug(f"Dimming to {self._brightness}")
         if self._deck_available():
             self._deck.set_brightness(self._brightness)
 
     def _main_loop(self):
         self._log.info("Main thread loop starting")
+
+        idle_time_minutes : int = self._config.get("idle_time_minutes", 15)
+        idle_step_time : int = (idle_time_minutes * 60) / App.LOOP_COUNTER_MAX
+        brightness_dict : dict = self._config.get("brightness", {"minimum": 10})
+        brightness_min : int = brightness_dict.get("minimum", 10)
+        dim_step_time : int = 300 / App.LOOP_COUNTER_MAX
+
+        self._loop_counter = App.LOOP_COUNTER_MAX
+        self._idle_counter = 0
+        self._dim_counter = 0
+
         while not self._destroyed:
             try:
                 self._loop_counter += 1
                 if self._loop_counter >= App.LOOP_COUNTER_MAX:
+                    # 15 secs
                     self._loop_counter = 0
                     self._scroll()
                     self._dim_counter += 1
-                    if self._dim_counter >= App.LOOP_COUNTER_MAX:
+                    
+                    if self._dim_counter >= dim_step_time:
+                        # 5 mins
                         self._dim_counter = 0
-                        self._dim()
+                        self._dim(brightness_min)
+                    
+                    if self._active_plugin is not None:
+                        if self._active_plugin.idle:
+                            self._idle_counter += 1
+                            if self._idle_counter >= idle_step_time:
+                                self._log.debug("Deactivating plugin because of idle timeout")
+                                self._deactivate_plugin()
+                        else:
+                            self._idle_counter = 0
+
             except:
                 pass
             time.sleep(1.0)
+
         self._log.info("Main thread loop exiting")
 
     def _dial_change_callback(self, deck, dial, event, value):
@@ -298,7 +331,7 @@ class App():
                     return
                 # home key
                 if key == 0:
-                    self._loop_counter = App.LOOP_COUNTER_MAX + 1
+                    self._loop_counter = App.LOOP_COUNTER_MAX
                     self._page_counter = 0
                     return
                 # next page key
@@ -318,22 +351,15 @@ class App():
                         self._log.debug(f"Found plugin : {plugin.name}")
                         # set this before we try and activate it so it blocks scroller images
                         self._active_plugin = plugin
-
                         if not plugin.activate():
-                            self._active_plugin = None
-                            self._loop_counter = App.LOOP_COUNTER_MAX
-                            self._default_layout()
+                            self._deactivate_plugin()
 
             else:
                 if 0 == key and key_state:
                     self._log.info("Back button pressed")
                     if self._active_plugin:
                         if not self._active_plugin.handle_back_button():
-                            self._log.info("Returning to Home screen")
-                            self._active_plugin.deactivate()
-                            self._active_plugin = None
-                            self._loop_counter = 15
-                            self._default_layout()
+                            self._deactivate_plugin()
                 else:
                     self._active_plugin.on_button_press(deck, key, key_state)
 
@@ -342,3 +368,12 @@ class App():
 
     def _deck_available(self) -> bool:
         return self._deck is not None
+
+    def _deactivate_plugin(self):
+        self._log.info("Returning to Home screen")
+        if self._active_plugin is not None:
+            self._active_plugin.deactivate()
+            self._active_plugin = None
+        self._loop_counter = App.LOOP_COUNTER_MAX
+        self._idle_counter = 0
+        self._default_layout()

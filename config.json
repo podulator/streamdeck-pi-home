@@ -300,8 +300,8 @@
             "name": "hostname",
             "class": "cmd",
             "config": {
-                "command": "hostname && ifconfig wlan0 | grep \"inet \" | xargs | cut -d' ' -f2",
-                "template": "Hostname : \n{}"
+                "command": "hostname && echo -n \"ip: \" && /sbin/ifconfig wlan0 | grep \"inet \" | xargs | cut -d' ' -f2",
+                "template": "{}"
             }
         }
     ]

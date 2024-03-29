@@ -2,11 +2,15 @@
 
 # we assume you have installed the platform equivalent of the following deps
 # and that you are using pulseaudioon something like debian bookworm
-#    sudo apt-get install python3-dev python3-setuptools \
+# sudo apt update && sudo apt -y upgrade
+# sudo apt -y install python3-dev python3-setuptools \
 #	 libtiff5-dev libjpeg-dev libopenjp2-7-dev zlib1g-dev \
 #    libfreetype6-dev liblcms2-dev libwebp-dev tcl8.6-dev tk8.6-dev python3-tk \
 #    libharfbuzz-dev libfribidi-dev libxcb1-dev \
 #    libhidapi-libusb0 python3.11-venv vlc sqlite3 pulseaudio-module-bluetooth
+
+# grab the code
+# git clone https://github.com/podulator/streamdeck-pi-home.git
 
 udev_file="/etc/udev/rules.d/70-streamdeck.rules"
 if [ ! -f ${udev_file} ]; then
@@ -31,8 +35,10 @@ if [ ! -d "/etc/systemd/system/getty@.service.d" ]; then
 fi
 
 if [[ ! -d venv ]]; then
+	echo "Creating virtual environment"
 	python -m venv venv
 	source ./venv/bin/activate
+	echo "Installing dependencies"
 	pip install -U wheel pip 2>/dev/null
 	pip install -r requirements.txt
 fi

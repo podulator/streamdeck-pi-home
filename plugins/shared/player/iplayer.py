@@ -84,6 +84,8 @@ class IPlayer(IPlugin):
         self._last_enqueued_album : Album = None
         self._last_enqueued_artist : Artist = None
 
+        self._help_message = "Music Player plugin\nBack | Mode | Repeat | Shuffle\nAdd | Stop | Play | Skip"
+
     def activate(self) -> bool:
         return super().activate()
 

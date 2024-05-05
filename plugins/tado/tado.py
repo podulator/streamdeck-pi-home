@@ -41,6 +41,7 @@ class TadoPlugin(IPlugin):
         self._device_index = 0
         self._tado = None
         self._images = None
+        self._help_message = "Tado Heating plugin\nBack | Zones | Devices | On\nHome | Weather | Stats | Off"
 
     def activate(self) -> bool:
         if (not super().activate()): return False

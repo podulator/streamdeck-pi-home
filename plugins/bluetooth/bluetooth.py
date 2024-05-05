@@ -32,6 +32,7 @@ class BluetoothPlugin(IPlugin):
         self._device_index : int = 0
         self._running_as_daemon : bool = False
         self._bt : BluetoothManager = BluetoothManager(app, self._callback)
+        self._help_message = "Bluetooth plugin\nBack | Status | Scan | Power\nForget | Info | Toggle Auto | N/A"
 
     def run_as_daemon(self) -> None:
         super().run_as_daemon()

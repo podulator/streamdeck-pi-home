@@ -57,6 +57,8 @@ class RadioPlugin(IPlugin):
         self._thread : threading.Thread = None
         self._player : VlcPlayer = VlcPlayer(app, self._on_player_callback)
 
+        self._help_message = "Internet Radio plugin\nBack | Chan 1 | Chan 2 | Chan 3\nChan - | Stop | Play | Chan +"
+
     def activate(self) -> bool:
         try:
             if not super().activate():

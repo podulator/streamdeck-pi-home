@@ -74,6 +74,8 @@ class FireTvPlugin(IPlugin):
         self._volume_max : int = 0
         self._thread : threading.Thread = None
 
+        self._help_message = "Fire TV plugin\nBack | Media | Live TV | Switch Input\nApps | Power | Alexa | Home"
+
     @property
     def device(self) -> AdbDeviceTcp:
         return self._device

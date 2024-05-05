@@ -17,10 +17,12 @@ from . import settings as settings_plugin
 from . import subsonic as subsonic_plugin
 from . import tado as tado_plugin
 from . import velux as velux_plugin
+import time
 
 class IPlugin(ABC):
 
     RenderLock : bool = False
+    LongPressDelta : float = 1.0
 
     def __init__(self, app, config, font) -> None:
         super().__init__()
@@ -32,8 +34,11 @@ class IPlugin(ABC):
         self._config : dict = config["config"]
         self._name : str = config["name"]
         self._class : str = config["class"]
+        self._cache : dict = None
         self._log : logging.Logger = logging.getLogger(__name__)
         self._log.setLevel(os.environ.get("LOGLEVEL", "INFO"))
+        self._help_message : str = "This is a default help message\nPlease override me\nin your own plugin"
+        self._help_showing : bool = False
 
     def activate(self) -> bool:
         try:
@@ -80,6 +85,30 @@ class IPlugin(ABC):
         """
         return False
 
+    def show_help(self) -> None:
+        self._log.info("showing help")
+        cache : dict = self._cache
+        self._render(self._help_message)
+        self._cache = cache
+        self._help_showing = True
+
+    def hide_help(self) -> None:
+        self._log.info("hiding the help")
+        if self._cache:
+            self._render(
+                self._cache["text"], 
+                self._cache["font_size"], 
+                self._cache["font_path"], 
+                self._cache["bg_color"]
+            )
+        else:
+            self._render("")
+        self._help_showing = False
+
+    @property
+    def help_showing(self) -> bool:
+        return self._help_showing
+
     def _load_images(self, collection, keys):
         for image in keys:
             collection.append(self._app.load_image(f"{self._plugin_path}/images/{image}"))
@@ -103,6 +132,14 @@ class IPlugin(ABC):
                 font_size = self._font["font_size"]
             if not font_path:
                 font_path = self._font["font_path"]
+
+            # set the cache
+            self._cache = {
+                "text": text,
+                "font_size": font_size, 
+                "font_path": font_path, 
+                "bg_color": bg_color
+            }
 
             b : bytes = self._text_to_image(text, font_size, font_path, bg_color)
             self._app.deck.set_touchscreen_image(b, 0, 0, self._app.screen_width, self._app.screen_height)

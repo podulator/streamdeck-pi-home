@@ -12,6 +12,7 @@ from typing import List, Optional
 class App():
 
     LOOP_COUNTER_MAX: int = 15
+    LONG_PRESS_TIME : float = 0.3
 
     def __init__(self, deck: Optional[StreamDeck], config: dict) -> None:
         self._plugins: List[IPlugin.IPlugin] = None
@@ -33,6 +34,7 @@ class App():
         self._next_page_image: Optional[bytes] = None
         self._page_counter : int = 0
         self._num_pages : int = 0
+        self._help_held : bool = False
 
     @property
     def num_buttons(self) -> int:
@@ -312,6 +314,11 @@ class App():
         self._brightness = 100
         self._deck.set_brightness(self._brightness)
 
+
+    def _show_help(self) -> None:
+        if self._active_plugin and self._help_held:
+            self._active_plugin.show_help()
+
     def _key_change_callback(self, deck, key, key_state):
         try:
             self._log.debug("Key: " + str(key) + " state: " + str(key_state))
@@ -355,12 +362,25 @@ class App():
                             self._deactivate_plugin()
 
             else:
-                if 0 == key and key_state:
+                # we have an active plugin
+                if 0 == key:
                     self._log.info("Back button pressed")
+
                     if self._active_plugin:
-                        if not self._active_plugin.handle_back_button():
-                            self._deactivate_plugin()
+                        if key_state:
+                            # start a help thread
+                            self._help_held = True
+                            help_thread = threading.Timer(App.LONG_PRESS_TIME, self._show_help)
+                            help_thread.start()
+                        else:
+                            self._help_held = False
+                            if self._active_plugin.help_showing:
+                                self._active_plugin.hide_help()
+                            else:
+                                if not self._active_plugin.handle_back_button():
+                                    self._deactivate_plugin()
                 else:
+                    # pass it through for the plugin to handle
                     self._active_plugin.on_button_press(deck, key, key_state)
 
         except Exception as ex:

@@ -72,6 +72,7 @@ class HuePlugin(IPlugin):
         self._images : list[bytes] = None
         self._inc_buffer : dict = {}
         self._thread : threading.Thread = None
+        self._help_message = "Hue Lights plugin\nBack | Groups | Lights | Scenes\nQuick | Color | Brightness | N/A"
 
     @property
     def config(self) -> dict:

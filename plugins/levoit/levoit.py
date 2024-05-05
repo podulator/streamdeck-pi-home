@@ -72,6 +72,7 @@ class LevoitPlugin(IPlugin):
 		self._images : list[bytes] = None
 		self._thread : threading.Thread = None
 		self._poll_counter : int = 0
+		self._help_message = "Levoit Air Filter plugin\nBack | Speed | Sleep | Power\n Info | Timer | Bright | Sleep"
 
 	def _poll(self):
 

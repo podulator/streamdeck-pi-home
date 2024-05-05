@@ -68,6 +68,7 @@ class VeluxPlugin(IPlugin):
         self._za_counter : int = 0
         self._shutter_counter : int = 0
         self._window_counter : int = 0
+        self._help_message = "Velux plugin\nBack | Info | Sensors | Zones\nBlinds | Windows | N/A | N/A"
 
     def activate(self) -> bool:
         if not super().activate(): 

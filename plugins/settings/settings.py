@@ -30,6 +30,7 @@ class SettingsPlugin(IPlugin):
 	def __init__(self, app, config, font) -> None:
 		super().__init__(app, config, font)
 		self._images : list[bytes] = None
+		self._help_message = "Settings plugin\nBack | Update | Reboot | Off\nInfo | Restart | Save | N/A"
 
 	def activate(self) -> bool:
 		try:

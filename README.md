@@ -438,6 +438,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/gam
 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 
 @reboot /usr/bin/sleep 30 && cd /home/YOU/code/streamdeck-pi-home && /home/YOU/code/streamdeck-pi-home/run.sh
+0 3 * * 1 sudo /usr/sbin/reboot
 
 ```
 
@@ -445,7 +446,7 @@ The `run.sh`` file is included here.
 
 ### LEDs
 
-To turn off the software cotraollable Leds, add something like this to your `/ect/rc.local`.
+To turn off the software controllable Leds, add something like this to your `/ect/rc.local`.
 
 ```
 echo none > /sys/class/leds/green_led/trigger

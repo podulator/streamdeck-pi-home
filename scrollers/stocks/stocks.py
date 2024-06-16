@@ -43,12 +43,12 @@ class StocksScroller(IScroller):
         pass
 
     def _get_prices(self, symbols : list[Dict]) -> list[Dict]:
-        
+
         expire : timedelta = timedelta(seconds = StocksScroller.cache_time)
         with CachedSession(cache_name = StocksScroller.cache_name, expire_after = expire) as sess: 
             sess.headers['User-agent'] = f"{StocksScroller.cache_name}/1.0"
             symbols_str : list[str] = [ d.get("symbol") for d in  symbols]
-            symbol_list : str = ' '.join(symbols_str)
+            symbol_list : str = ' '.join(symbols_str).replace(".", "-")
             response = yf.Tickers(tickers = symbol_list, session = sess)
             now : str = datetime.now().strftime("%H:%M")
             results : list[Dict] = []

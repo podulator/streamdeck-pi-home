@@ -17,7 +17,7 @@ The screen automatically dims slowly with no inputs registered, 10% every minute
 
 - 1 : N/A
 - 2 : N/A
-- 3 : Scroll through the Scrollers manually. Does not go through the sub pages, only the inital page for each scroller.
+- 3 : Scroll through the Scrollers manually. Does not go through the sub pages, only the initial page for each scroller.
 - 4 : Controls screen brightness manually. 
   - Push to toggle between 100% and 10%.
   - Turn to move incrementally.
@@ -34,6 +34,7 @@ They have an activate / deactivate lifecycle, and so can keep their data between
 
 They are accessed from the Home page main buttons. 
 Upon entry, they provide their own layout, and always a 'Back' button in the first slot, to return Home. 
+Long press of the Back button shows plugin specific help. 
 After that, their behaviour is custom. 
 
 ### Plugin : Blank

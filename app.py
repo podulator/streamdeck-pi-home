@@ -99,6 +99,7 @@ class App():
             self._deck.reset()
             self._log.info(f"Opened '{self._deck.deck_type()}' device (serial number: '{self._deck.get_serial_number()}')")
 
+
         font : dict = self._config["font"]
         if self._plugins is None:
             plugins : list[IPlugin.IPlugin] = []
@@ -228,11 +229,13 @@ class App():
         idle_step_time : int = (idle_time_minutes * 60) / App.LOOP_COUNTER_MAX
         brightness_dict : dict = self._config.get("brightness", {"minimum": 10})
         brightness_min : int = brightness_dict.get("minimum", 10)
+        brightness_initial : int = brightness_dict.get("initial", brightness_min)
         dim_step_time : int = 300 / App.LOOP_COUNTER_MAX
 
         self._loop_counter = App.LOOP_COUNTER_MAX
         self._idle_counter = 0
         self._dim_counter = 0
+        self._dim(brightness_initial)
 
         while not self._destroyed:
             try:

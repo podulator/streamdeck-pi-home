@@ -229,15 +229,18 @@ class App():
         idle_step_time : int = (idle_time_minutes * 60) / App.LOOP_COUNTER_MAX
         brightness_dict : dict = self._config.get("brightness", {"minimum": 10})
         brightness_min : int = brightness_dict.get("minimum", 10)
-        brightness_initial : int = brightness_dict.get("initial", brightness_min)
         dim_step_time : int = 300 / App.LOOP_COUNTER_MAX
 
         self._loop_counter = App.LOOP_COUNTER_MAX
         self._idle_counter = 0
         self._dim_counter = 0
-        self._dim(brightness_initial)
 
-        while not self._destroyed:
+        if self._deck_available():
+            brightness_initial : int = brightness_dict.get("initial", brightness_min)
+            self._log.debug(f"Setting initial brightness to: {brightness_initial}")
+            self._deck.set_brightness(brightness_initial)
+
+        while not self._destroyed:>
             try:
                 self._loop_counter += 1
                 if self._loop_counter >= App.LOOP_COUNTER_MAX:

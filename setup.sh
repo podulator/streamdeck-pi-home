@@ -1,5 +1,34 @@
 #!/usr/bin/bash
 
+python=$(which python3)
+pyenv=$(which pyenv)
+pyver=$( ${python} --version )
+
+# WE NEED TO CHECK IF THE PYTHON VERSION CONTAINS 3.11 exactly
+if [[ ${pyver} == *"Python 3.11"* ]]; then
+	echo "We have python 3.11"
+else
+	echo "We need python 3.11"
+	echo "current version is : ${pyver}"
+	# if we have pyenv installed, we can try to install 3.11
+	if [ -z ${pyenv} ]; then
+		echo "You need to install pyenv"
+		exit 2
+	fi
+	success=$( ${pyenv} install -s 3.11 )
+	if [ ${success} -eq 0 ]; then
+		echo "Installed python 3.11"
+		${pyenv} local 3.11
+		# update our ref to the pyenv version
+		python=$(which python3)
+		echo python --version
+	else
+		echo "Failed to install python 3.11"
+		exit 3
+	fi
+fi
+
+
 # we assume you have installed the platform equivalent of the following deps
 # and that you are using pulseaudioon something like debian bookworm
 # sudo apt update && sudo apt -y upgrade

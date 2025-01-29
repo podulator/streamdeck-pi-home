@@ -240,7 +240,7 @@ class App():
             self._log.debug(f"Setting initial brightness to: {brightness_initial}")
             self._deck.set_brightness(brightness_initial)
 
-        while not self._destroyed:>
+        while not self._destroyed:
             try:
                 self._loop_counter += 1
                 if self._loop_counter >= App.LOOP_COUNTER_MAX:

@@ -54,13 +54,13 @@ class StocksScroller(IScroller):
             results : list[Dict] = []
             for sy in symbols:
                 try:
-                    symbol : str = sy.get("symbol")
+                    symbol : str = sy.get("symbol").replace(".", "-")
                     name : str = sy.get("name")
                     ticker : yf.Ticker = response.tickers[symbol]
-                    if not ticker:
+                    if not ticker or not ticker.info:
                         continue
                     price : Decimal = Context(prec=6).create_decimal(ticker.info["currentPrice"]).quantize(Decimal("0.00"))
-                    open : Decimal = Context(prec=6).create_decimal(ticker.info["open"]).quantize(Decimal("0.00"))
+                    open_price : Decimal = Context(prec=6).create_decimal(ticker.info["open"]).quantize(Decimal("0.00"))
                     currency_str : str = response.tickers[symbol].info["currency"]
                     match currency_str:
                         case "USD":
@@ -72,7 +72,7 @@ class StocksScroller(IScroller):
                         case _:
                             currency = "?"
 
-                    change_f : float = (price / open * 100) - 100
+                    change_f : float = (price / open_price * 100) - 100
                     change : Decimal = Context(prec=2).create_decimal(change_f).quantize(Decimal("0.00"))
                     results.append({
                         "name" : name,
@@ -85,6 +85,6 @@ class StocksScroller(IScroller):
                     )
                 except Exception as ex:
                     self._log.error(ex)
-                    pass
+                    break
             return results
     

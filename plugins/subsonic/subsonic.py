@@ -7,6 +7,7 @@ from ..shared.player.iplayer import IPlayer
 import libsonic
 import textwrap
 import threading
+import time
 
 class MySubsonicConnection(libsonic.Connection):
 
@@ -44,11 +45,12 @@ class MySubsonicConnection(libsonic.Connection):
 
 class SubsonicPlugin(IPlayer):
 
-    partition_keys = [ "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X-Z", "#" ]
+    partition_keys = [ "Latest", "Random", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X-Z", "#" ]
     
     def __init__(self, app, config, font) -> None:
         super().__init__(app, config, font)
         # reset everything
+        
         self._state = IPlayer.State.NONE
         self._toggle_state = IPlayer.ToggleState.NONE
         self._info_latch = True
@@ -176,6 +178,26 @@ class SubsonicPlugin(IPlayer):
             case _:
                 return
 
+    def _get_albums_by_filter(self, filter: str) -> list[Album]:
+        self._log.info(f"Loading albums filtered by {filter}")
+        results = []
+        try:
+            returned = self._client.getAlbumList(filter)
+            albums = returned["albumList"]
+            if albums is None: 
+                return results
+
+            for album in albums["album"]:
+                year : int = 0
+                if "year" in album:
+                    year = int(album["year"])
+                results.append(Album(album["id"], album["name"], album["artist"], year))
+            # sort by display_name, then year
+            return sorted(results, key = lambda x: ((x.display_name, x.year)) )
+        except Exception as ex:
+            self._log.error(ex)
+            return results
+    
     def _get_albums_by_artist(self, artist : Artist) -> list[Album]:
         self._log.info(f"Loading albums for artist : {artist.display_name}")
         results = []
@@ -192,7 +214,7 @@ class SubsonicPlugin(IPlayer):
                 year : int = 0
                 if "year" in album:
                     year = int(album["year"])
-                results.append(Album(album["id"], album["name"], year))
+                results.append(Album(album["id"], album["name"], artist["name"], year))
             # sort by display_name, then year
             return sorted(results, key = lambda x: ((x.display_name, x.year)) )
         except Exception as ex:
@@ -217,7 +239,7 @@ class SubsonicPlugin(IPlayer):
                 index : int = 0
                 if "track" in song:
                     index = int(song["track"])
-                results.append(Track(id, name, index))
+                results.append(Track(id, name, album["name"], album["artist"], index))
 
             # sort by track index, then display_name if no index
             return sorted(results, key = lambda x: ((x.index, x.display_name)) )
@@ -303,6 +325,22 @@ class SubsonicPlugin(IPlayer):
                 # detect mode and add all tracks at that level
                 match self._state:
                     case IPlayer.State.PARTITIONS:
+                        partition_key = self._partition_keys[self._partition_counter]
+                        match partition_key.lower():
+                            case "latest":
+                                albums: list[Album] = self._get_albums_by_filter("newest")
+                                for album in albums:
+                                    self._enqueue_album(album)
+                                num_albums: int = len(albums)
+                                time.sleep(1)
+                                self._render(f"Latest:\n{num_albums} enqueued albums...\n")
+                            case "random":
+                                albums: list[Album] = self._get_albums_by_filter("random")
+                                for album in albums:
+                                    self._enqueue_album(album)
+                                num_albums: int = len(albums)
+                                time.sleep(1)
+                                self._render(f"Random:\n{num_albums} enqueued albums...\n")
                         pass
                     case IPlayer.State.ARTISTS:
                         partition_key = self._partition_keys[self._partition_counter]

@@ -223,6 +223,7 @@ class IPlayer(IPlugin):
             self._running = False
             self._player.stop()
             self._player.clear()
+            self._player.destroy()
             if self._thread is not None:
                 self._thread.join()
                 self._thread = None

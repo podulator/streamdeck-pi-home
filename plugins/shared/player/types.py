@@ -36,9 +36,10 @@ class Album():
 
     key : str = "MusicAlbum"
 
-    def __init__(self, id : str, name : str, year : int = 0) -> None:
+    def __init__(self, id : str, name : str, artist: str, year : int = 0) -> None:
         self._id : str = id
         self._name : str = name
+        self._artist_name: str = artist
         self._tracks : list[Track] = []
         self._year : int = year
 
@@ -52,7 +53,11 @@ class Album():
     @property
     def name(self):
         return self._name
-        
+
+    @property
+    def artist_name(self):
+        return self._artist_name
+
     @property
     def year(self):
         return self._year
@@ -73,10 +78,12 @@ class Track():
 
     key : str = "Audio"
 
-    def __init__(self, id : str, name : str, index : int = 0, url : str = "") -> None:
+    def __init__(self, id : str, name : str, album : str, artist : str, index : int = 0, url : str = "") -> None:
         self._id : str = id
         self._name : str = name
         self._display_name : str = string.capwords(name.replace("_", " "))
+        self._artist_name : str = artist
+        self._album_name : str = album
         self._index : int = index
         self._url : str = url
 
@@ -94,6 +101,14 @@ class Track():
     @property
     def name(self):
         return self._name
+
+    @property
+    def album_name(self):
+        return self._album_name
+
+    @property
+    def artist_name(self):
+        return self._artist_name
 
     @property
     def url(self):

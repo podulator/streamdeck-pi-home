@@ -112,8 +112,10 @@ if __name__ == "__main__":
                     # Wait until all application threads have terminated (for this example,
                     # this is when all deck handles are closed).
                     for t in threading.enumerate():
+                        if t.name.lower() == "mainthread": continue
                         try:
-                            t.join()
+                            if t._is_stopped:
+                                t.join()
                         except RuntimeError:
                             pass
                         except Exception as ex:

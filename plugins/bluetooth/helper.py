@@ -11,6 +11,7 @@ import time
 
 class BluetoothManager(BluetoothCtlInterface):
     DEFAULT_TIMEOUT : int = 10
+    BACKOFF_MAX: int = 256
 
     def __init__(self, app, callback : Callable):
         super().__init__()
@@ -23,6 +24,7 @@ class BluetoothManager(BluetoothCtlInterface):
         self._connected_device : BluetoothDevice = None
         self._scanning : bool = False
         self._is_daemon : bool = False
+        self._backoff: int = 0
         self._debug : bool = False
 
     @property
@@ -188,8 +190,10 @@ class BluetoothManager(BluetoothCtlInterface):
                                 for d in self._available_devices:
                                     if d.name == a:
                                         if self.connect(d):
+                                            self._backoff = 0
                                             break
                                         time.sleep(1)
+                                       
                                 if self._connected_device is not None:
                                     # successful connection
                                     break
@@ -198,8 +202,10 @@ class BluetoothManager(BluetoothCtlInterface):
                         self._connected_device.refresh()
                         if not self._connected_device.connected:
                             self._disconnect(self._connected_device)
-
-                time.sleep(1)
+                        else:
+                            _backoff = 0
+                self._backoff = min(self._backoff + 1, BluetoothManager.BACKOFF_MAX)
+                time.sleep(self._backoff)
             self._log.debug("Daemon connection stopped")
 
         except (BluetoothError, Exception) as e:

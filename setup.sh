@@ -13,10 +13,11 @@ else
 	# if we have pyenv installed, we can try to install 3.11
 	if [ -z ${pyenv} ]; then
 		echo "You need to install pyenv"
+		# https://www.dedicatedcore.com/blog/install-pyenv-ubuntu/
 		exit 2
 	fi
 	success=$( ${pyenv} install -s 3.11 )
-	if [ ${success} -eq 0 ]; then
+	if [[ ${success} -eq 0 ]]; then
 		echo "Installed python 3.11"
 		${pyenv} local 3.11
 		# update our ref to the pyenv version
@@ -63,7 +64,7 @@ if [ ! -d "/etc/systemd/system/getty@.service.d" ]; then
 	echo "ExecStart=-/sbin/agetty --noclear --autologin ${USER} %I ${TERM}" | sudo tee -a /etc/systemd/system/getty@.service.d/override.conf > /dev/null
 fi
 
-if [[ ! -d venv ]]; then
+if [ ! -d venv ]; then
 	echo "Creating virtual environment"
 	python -m venv venv
 	source ./venv/bin/activate

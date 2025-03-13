@@ -140,9 +140,11 @@ class VlcPlayer:
         return
 
     def _error_callback(self, event : VlcPlayerEvents) -> None:
-        self._reset()
+        self._log.debug(f"VLC Raised an Error - {event.u}")
+        self.stop()
         self._now_playing = None
         self._notify(VlcPlayerEvents.ERROR_OCCURRED, 2, f"Error : {event.u}", False)
+        self.destroy()
 
     def _playing_callback(self, event : VlcPlayerEvents) -> None:
         self._notify(VlcPlayerEvents.PLAYING_MEDIA, 2, "Playing", False)
@@ -167,6 +169,8 @@ class VlcPlayer:
                 return "Stopped"
             case State.Ended:
                 return "Ended"
+            case State.Error:
+                return "Error"
             case _:
                 return f"Unknown player state - {self.state}"
 
@@ -283,8 +287,9 @@ class VlcPlayer:
             self._log.debug(f"Setting media to {track.url}")
             media : Media  = self._instance.media_new(track.url)
             if media is None:
+                self._log.debug("Media is None")
                 self._error_callback("Error opening media", 2, False)
-                self._reset()
+                self.stop()
                 self._now_playing = None
                 return
 
@@ -303,8 +308,8 @@ class VlcPlayer:
                 self.show_now_playing()
 
         except Exception as ex:
-            self._info_callback("Error playing track", 2, False)
             self._log.error(f"Exception playing : {ex}")
+            self._info_callback("Error playing track", 2, False)
             self._now_playing = None
             self._reset()
 

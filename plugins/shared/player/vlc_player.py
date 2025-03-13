@@ -282,8 +282,13 @@ class VlcPlayer:
 
             self._log.debug(f"Setting media to {track.url}")
             media : Media  = self._instance.media_new(track.url)
-            self._player.set_media(media)
+            if media is None:
+                self._error_callback("Error opening media", 2, False)
+                self._reset()
+                self._now_playing = None
+                return
 
+            self._player.set_media(media)
             self._log.debug(f"Playing track {track.display_name} - ({track.index})")
             result = self._player.play()
 
@@ -401,7 +406,7 @@ class VlcPlayer:
             self._info_callback("Muted", 2.0, True)
         self._log.debug(f"Mute set to {self._player.audio_get_mute()}")
 
-    def destroy() -> None:
+    def destroy(self) -> None:
         if self._thread is not None:
             self._thread_running = False
             self._thread.join()

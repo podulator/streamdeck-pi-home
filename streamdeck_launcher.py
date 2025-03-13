@@ -130,7 +130,7 @@ if __name__ == "__main__":
                     deck = None
                     time.sleep(5)
 
-        log.info("Exiting")
+        log.info("Deck detection exiting")
 
     except Exception as ex:
         log.error(ex)

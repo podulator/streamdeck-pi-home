@@ -112,7 +112,7 @@ class IPlayer(IPlugin):
         message = data["message"]
         keep = data["keep"]
         time = data["time"]
-        self._log.debug(f"{self._class} :: player callback - {message}")
+        self._log.debug(f"{self._class} :: player callback - {message.replace("\n", ", ").strip()}")
 
         match event_type:
             case VlcPlayerEvents.NONE:

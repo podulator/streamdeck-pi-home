@@ -132,6 +132,7 @@ class IPlayer(IPlugin):
             case VlcPlayerEvents.STOPPED_MEDIA:
                 self._update_buttons()
             case VlcPlayerEvents.MEDIA_ENDED:
+                self._log.debug("Setting play_next to true")
                 self._play_next = True
                 self._update_buttons()
             case VlcPlayerEvents.INFO_MESSAGE:
@@ -236,8 +237,10 @@ class IPlayer(IPlugin):
         while (self._running):
             time.sleep(0.1)
             if self._play_next:
+                self._log.debug("Preparing to play the next song")
                 self._play_next = False
                 if len(self._player.playlist) > 0:
+                    self._log.debug("Playlist has songs to play")
                     self._player.play()
         self._log.info(f"{self._class} thread exiting")
 

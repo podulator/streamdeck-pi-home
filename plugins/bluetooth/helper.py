@@ -64,6 +64,8 @@ class BluetoothManager(BluetoothCtlInterface):
             self._run_command("scan on", timeout)
             self._resolve_devices()
             self._log.info(f"Bluetooth - Scan completed : Found {len(self._available_devices)} devices")
+            for device in self._available_devices:
+                self._log.debug(str(device))
             self._notify(f"Bluetooth\nScan completed\nFound {len(self._available_devices)} devices")
         except (BluetoothError, Exception) as e:
             self._log.error(e)
@@ -199,8 +201,10 @@ class BluetoothManager(BluetoothCtlInterface):
                                     break
                     else:
                         # check if we're still really connected
+                        self._log.debug(f"Refreshing device status :: {self._connected_device.mac_address}")
                         self._connected_device.refresh()
                         if not self._connected_device.connected:
+                            self._log.debug("Device disconnected, forcing a reset")
                             self._disconnect(self._connected_device)
                         else:
                             _backoff = 0
@@ -214,6 +218,7 @@ class BluetoothManager(BluetoothCtlInterface):
 
     def connect(self, device : BluetoothDevice) -> bool:
         try:
+            self._log.debug(f"Bluetooth connecting to {device.name} :: {device.mac_address}")
             if device.connect():
                 self._connected_device = device
                 self._notify(f"Bluetooth\nConnected to\n{device.name}")

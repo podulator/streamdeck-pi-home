@@ -174,13 +174,13 @@ class BluetoothManager(BluetoothCtlInterface):
     def daemon_connect(self, allowed_devices : list[str]) -> bool:
         try:
             counter : int = 0
-            threshold : int = 15
+            threshold : int = 10
             self._is_daemon = True
 
             device_list : str = "', '".join(allowed_devices)
             self._log.info(f"Bluetooth allowed devices : '{device_list}'")
 
-            while self._is_daemon:                
+            while self._is_daemon:
                 counter += 1
                 if counter > threshold:
                     counter = 0
@@ -195,8 +195,8 @@ class BluetoothManager(BluetoothCtlInterface):
                                             self._backoff = 0
                                             break
                                         self._log.info(f"Connection to device {d.name} failed")
-                                        time.sleep(1)
-                                       
+                                        time.sleep(self._backoff)
+
                                 if self._connected_device is not None:
                                     # successful connection
                                     break
@@ -208,9 +208,10 @@ class BluetoothManager(BluetoothCtlInterface):
                             self._log.debug("Device disconnected, forcing a reset")
                             self._disconnect(self._connected_device)
                         else:
-                            _backoff = 0
+                            self._backoff = 0
 
                 self._backoff = min(self._backoff + 1, BluetoothManager.BACKOFF_MAX)
+                self._log.debug(f"Bluetooth daemon loop backoff sleep time is {self._backoff} seconds")
                 time.sleep(self._backoff)
 
             self._log.debug("Daemon connection stopped")

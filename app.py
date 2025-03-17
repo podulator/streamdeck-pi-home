@@ -26,6 +26,7 @@ class App():
         self._loop_counter: int = 0
         self._idle_counter : int = 0
         self._brightness: int = 100
+        self._button_mask: int = 0
         self._deck: Optional[StreamDeck] = deck
         self._config: dict = config
         self._log: logging.Logger = logging.getLogger(__name__)
@@ -271,11 +272,20 @@ class App():
 
     def _dial_change_callback(self, deck, dial, event, value):
         try:
+            if event == DialEventType.PUSH:
+                # if value is true, add the (dial + 1) ^ 2 to the mask
+                # if value is false, subtract the (dial + 1) ^ 2 from the mask
+                self._button_mask = self._button_mask ^ (1 << dial)
+                self._log.debug(f"Button mask: {self._button_mask}")
+                if self._button_mask & 0b1100 == 0b1100:
+                    self.destroy()
             if self._active_plugin is None:
                 if not value:
                     return
                 if event == DialEventType.TURN:
                     match dial:
+                        case 0:
+                            pass
                         case 1:
                             pass
                         case 2:
@@ -291,10 +301,10 @@ class App():
                             self._brightness = max(min(100, self._brightness), 10)
                             self._deck.set_brightness(self._brightness)
                             return
-                        case _:
-                            pass
                 elif event == DialEventType.PUSH:
                     match dial:
+                        case 0:
+                            pass
                         case 1:
                             pass
                         case 2:
@@ -306,8 +316,6 @@ class App():
                                 self._brightness = 10
                             self._deck.set_brightness(self._brightness)
                             return
-                        case _:
-                            pass
             else:
                 if event == DialEventType.PUSH:
                     self._active_plugin.on_dial_pushed(deck, dial, value)

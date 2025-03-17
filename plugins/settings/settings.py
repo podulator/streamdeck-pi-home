@@ -15,7 +15,7 @@ class SettingsPlugin(IPlugin):
 		INFO = 4
 		RELOAD = 5
 		SAVE = 6
-		BLANK_1 = 7
+		WIFI = 7
 
 	image_keys : list[str] = [ 
 		"update.png", 
@@ -24,13 +24,13 @@ class SettingsPlugin(IPlugin):
 		"info.png", 
 		"reload.png", 
 		"save.png", 
-		"blank.png" 
+		"wifi.png" 
 	]
 
 	def __init__(self, app, config, font) -> None:
 		super().__init__(app, config, font)
 		self._images : list[bytes] = None
-		self._help_message = "Settings plugin\nBack | Update | Reboot | Off\nInfo | Restart | Save | N/A"
+		self._help_message = "Settings plugin\nBack | Update | Reboot | Off\nInfo | Restart | Save | Wifi"
 
 	def activate(self) -> bool:
 		try:
@@ -47,7 +47,7 @@ class SettingsPlugin(IPlugin):
 			self._app.set_button_image(SettingsPlugin.Buttons.INFO, self._images[3])
 			self._app.set_button_image(SettingsPlugin.Buttons.RELOAD, self._images[4])
 			self._app.set_button_image(SettingsPlugin.Buttons.SAVE, self._images[5])
-			self._app.set_button_image(SettingsPlugin.Buttons.BLANK_1, self._images[6])
+			self._app.set_button_image(SettingsPlugin.Buttons.WIFI, self._images[6])
 			self._update_state()
 			self._activated = True
 		except Exception as ex:
@@ -93,6 +93,9 @@ class SettingsPlugin(IPlugin):
 				self._notify("Saving...\nPlease wait...", True)
 				self._app.save_config()
 				self._update_state()
+			case SettingsPlugin.Buttons.WIFI:
+				self._log.debug("wifi button pressed")
+				self._run_wifi_recycle()
 			case _:
 				self._log.debug("unknown button pressed")
 				return
@@ -133,6 +136,12 @@ class SettingsPlugin(IPlugin):
 		result : str = self._command_runner("update")
 		self._log.debug(result)
 		self._notify(f"Update: {result}", False)
+
+	def _run_wifi_recycle(self) -> None:
+		self._notify("Recycling wifi...\nPlease wait...", True)
+		result : str = self._command_runner("wifi")
+		self._log.debug(result)
+		self._notify(f"Wifi: {result}", False)
 
 	def _get_command_by_name(self, name : str) -> dict:
 		for command in self._config["commands"]:

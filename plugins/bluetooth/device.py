@@ -8,8 +8,8 @@ class BluetoothDevice(BluetoothCtlInterface):
 
     def __init__(self, mac_address : str = None) -> None:
         super().__init__()
-        # default the name to mac address, in case it is None when we parse for it]
-        self._name : str = mac_address
+        # default the name to empty, and use the public getter to return the mac address if it is empty
+        self._name : str = ""
         self._mac_address : str = mac_address
         self._connected : bool = False
         self._paired : bool = False
@@ -21,6 +21,8 @@ class BluetoothDevice(BluetoothCtlInterface):
 
     @property
     def name(self) -> str:
+        if self._name is None:
+            return self._mac_address
         return self._name
 
     @property
@@ -80,7 +82,7 @@ class BluetoothDevice(BluetoothCtlInterface):
                     # we already know the mac address by here
                     continue
                 elif line.startswith("Name:"):
-                    if self._name == "":
+                    if not self._name:
                         self._name = line.split(":")[1].strip()
                 elif line.startswith("Paired:"):
                     paired = line.split(":")[1].strip().lower() == "yes"

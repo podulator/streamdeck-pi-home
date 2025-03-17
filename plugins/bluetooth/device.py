@@ -69,19 +69,25 @@ class BluetoothDevice(BluetoothCtlInterface):
                 raise BluetoothError("No mac address specified")
             results : list[str] = self._run_command(f"info {self.mac_address}")
             self._info = []
+
+            paired: bool = False
+            trusted: bool = False
+            connected: bool = False
+
             for line in results:
                 line = line.strip()
                 if line.startswith("Device"):
                     # we already know the mac address by here
                     continue
                 elif line.startswith("Name:"):
-                    self._name = line.split(":")[1].strip()
+                    if self._name == "":
+                        self._name = line.split(":")[1].strip()
                 elif line.startswith("Paired:"):
-                    self._paired = line.split(":")[1].strip().lower() == "yes"
+                    paired = line.split(":")[1].strip().lower() == "yes"
                 elif line.startswith("Trusted:"):
-                    self._trusted = line.split(":")[1].strip().lower() == "yes"
+                    trusted = line.split(":")[1].strip().lower() == "yes"
                 elif line.startswith("Connected:"):
-                    self._connected = line.split(":")[1].strip().lower() == "yes"
+                    connected = line.split(":")[1].strip().lower() == "yes"
                 else:
                     # only add key value stuff to info, or we pick up loads of junk
                     pos : int = line.find(":")
@@ -89,6 +95,9 @@ class BluetoothDevice(BluetoothCtlInterface):
                         line = line[pos + 1:].strip()
                         self._info.append(line)
 
+            self._paired = paired
+            self._trusted = trusted
+            self._connected = connected
             return True
         except (BluetoothError, Exception) as e:
             self._log.error(e)

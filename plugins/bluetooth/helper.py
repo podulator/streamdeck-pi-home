@@ -12,6 +12,7 @@ import time
 class BluetoothManager(BluetoothCtlInterface):
     DEFAULT_TIMEOUT : int = 10
     BACKOFF_MAX: int = 120
+    BACKOFF_MIN: int = 30
 
     def __init__(self, app, callback : Callable):
         super().__init__()
@@ -24,7 +25,7 @@ class BluetoothManager(BluetoothCtlInterface):
         self._connected_device : BluetoothDevice = None
         self._scanning : bool = False
         self._is_daemon : bool = False
-        self._backoff: int = 0
+        self._backoff: int = BluetoothManager.BACKOFF_MIN
         self._debug : bool = False
 
     @property
@@ -77,6 +78,7 @@ class BluetoothManager(BluetoothCtlInterface):
             device.disconnect()
             if device == self._connected_device and device.connected == False:
                 self._connected_device = None
+            self._backoff = BluetoothManager.BACKOFF_MIN
             return True
         except (BluetoothError, Exception) as e:
             self._log.error(e)
@@ -104,9 +106,7 @@ class BluetoothManager(BluetoothCtlInterface):
             return False
 
     def _resolve_devices(self) -> bool:
-
         try:
-
             self._log.debug("Building device ground truth")
             available_devices : list[BluetoothDevice] = []
             results : list[str] = self._run_command("devices")
@@ -173,7 +173,6 @@ class BluetoothManager(BluetoothCtlInterface):
 
     def daemon_connect(self, allowed_devices : list[str]) -> bool:
         try:
-            counter : int = 0
             threshold : int = 10
             self._is_daemon = True
 
@@ -181,34 +180,30 @@ class BluetoothManager(BluetoothCtlInterface):
             self._log.info(f"Bluetooth allowed devices : '{device_list}'")
 
             while self._is_daemon:
-                counter += 1
-                if counter > threshold:
-                    counter = 0
+                if self._connected_device is None:
+                    self._scan(threshold - 2)
                     if self._connected_device is None:
-                        self._scan(threshold - 2)
-                        if self._connected_device is None:
-                            self._log.debug(f"Bluetooth available devices : {', '.join([d.name for d in self._available_devices])}")
-                            for a in allowed_devices:
-                                for d in self._available_devices:
-                                    if d.name == a:
-                                        if self.connect(d):
-                                            self._backoff = 30
-                                            break
-                                        self._log.info(f"Connection to device {d.name} failed")
-                                        time.sleep(self._backoff)
-
-                                if self._connected_device is not None:
-                                    # successful connection
-                                    break
+                        self._log.debug(f"Bluetooth available devices : {', '.join([d.name for d in self._available_devices])}")
+                        for a in allowed_devices:
+                            for d in self._available_devices:
+                                if d.name == a:
+                                    if self.connect(d):
+                                        self._backoff = BluetoothManager.BACKOFF_MAX
+                                        break
+                                    self._log.info(f"Connection to device {d.name} failed")
+                                    time.sleep(self._backoff)
+                            if self._connected_device is not None:
+                                # successful connection
+                                break
+                else:
+                    # check if we're still really connected
+                    self._log.debug(f"Refreshing device status :: {self._connected_device.mac_address}")
+                    self._connected_device.refresh()
+                    if not self._connected_device.connected:
+                        self._log.debug("Device disconnected, forcing a reset")
+                        self._disconnect(self._connected_device)
                     else:
-                        # check if we're still really connected
-                        self._log.debug(f"Refreshing device status :: {self._connected_device.mac_address}")
-                        self._connected_device.refresh()
-                        if not self._connected_device.connected:
-                            self._log.debug("Device disconnected, forcing a reset")
-                            self._disconnect(self._connected_device)
-                        else:
-                            self._backoff = 30
+                        self._backoff = BluetoothManager.BACKOFF_MAX
 
                 if self.connected_device and not self.connected_device.connected:
                     self._backoff = min(self._backoff + 1, BluetoothManager.BACKOFF_MAX)

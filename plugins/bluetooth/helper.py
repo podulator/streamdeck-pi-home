@@ -210,7 +210,7 @@ class BluetoothManager(BluetoothCtlInterface):
                         else:
                             self._backoff = 30
 
-                if not self.connected_device.connected:
+                if self.connected_device and not self.connected_device.connected:
                     self._backoff = min(self._backoff + 1, BluetoothManager.BACKOFF_MAX)
                 self._log.debug(f"Bluetooth daemon loop backoff sleep time is {self._backoff} seconds")
                 time.sleep(self._backoff)

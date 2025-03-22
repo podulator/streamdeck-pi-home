@@ -239,7 +239,9 @@ class SubsonicPlugin(IPlayer):
                 index : int = 0
                 if "track" in song:
                     index = int(song["track"])
-                results.append(Track(id, name, album["name"], album["artist"], index))
+                track = Track(id, name, album["name"], album["artist"], index)
+                results.append(track)
+                self._log(f"Added track: {track}")
 
             # sort by track index, then display_name if no index
             return sorted(results, key = lambda x: ((x.index, x.display_name)) )

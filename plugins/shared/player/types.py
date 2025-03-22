@@ -1,3 +1,4 @@
+import json
 import string
 
 class Artist():
@@ -11,6 +12,16 @@ class Artist():
 
     def __lt__(self, other):
         return isinstance(other, Artist) and self.display_name < other.display_name
+
+    def __str__(self) -> str:
+        return json.dumps(self.toJSON())
+
+    def toJSON(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "num_albums": len(self.albums)
+        }
 
     @property
     def id(self):
@@ -45,6 +56,18 @@ class Album():
 
     def __lt__(self, other):
         return isinstance(other, Album) and self.display_name < other.display_name
+
+    def __str__(self) -> str:
+        return json.dumps(self.toJSON())
+
+    def toJSON(self) -> dict:
+        return {
+            "id" : self.id,
+            "name" : self.name,
+            "artist_name" : self.artist_name,
+            "year" : self.year,
+            "num_tracks" : len(self.tracks)
+        }
 
     @property
     def id(self):
@@ -89,6 +112,20 @@ class Track():
 
     def __lt__(self, other):
         return isinstance(other, Track) and self.index < other.index
+
+    def __str__(self) -> str:
+        return json.dumps(self.toJSON())
+
+    def toJSON(self) -> dict:
+        return {
+            "id" : self.id,
+            "name" : self.name,
+            "display_name" : self.display_name,
+            "artist_name" : self.artist_name,
+            "album_name" : self.album_name,
+            "index" : self.index,
+            "url" : self.url
+        }
 
     @property
     def id(self):

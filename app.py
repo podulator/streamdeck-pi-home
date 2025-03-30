@@ -123,6 +123,7 @@ class App():
                     counter += self.num_buttons - 2
             else:
                 self._num_pages = 1
+            self._log.debug(f"Plugins will span {self._num_pages} pages")
 
         if self._scrollers is None:
             scrollers : list[IScroller.IScroller] = []
@@ -134,16 +135,20 @@ class App():
             self._log.info(f"Loaded {len(self._scrollers)} scrollers")
 
         if self._home_image is None:
+            self._log.debug("Loading home images...")
             self._home_image = self.load_image("images/home.png")
             self._next_page_image = self.load_image("images/next.png")
 
         # bind handlers
         if self._deck_available():
+            self._log.debug("Registering deck callbacks...")
             self._deck.set_key_callback(self._key_change_callback)
             self._deck.set_dial_callback(self._dial_change_callback)
             self._deck.set_brightness(self._brightness)
 
         self._default_layout()
+
+        self._log.debug("Starting main thread loop...")
         threading.Thread(target=self._main_loop, daemon=True).start()
 
     def _render_scroller_image(self, b: bytes) -> None:
@@ -180,12 +185,14 @@ class App():
             return success
 
     def _default_layout(self):
+        self._log.debug("Creating default layout")
         self.set_button_image(0, self._home_image)
 
-        num_plugins : int = len(self._plugins)
+        num_plugins: int = len(self._plugins)
         start: int = self._page_counter * (self.num_buttons - 2)
 
         if self._page_counter == self._num_pages - 1:
+            # last page
             for p in range(start, num_plugins):
                 if None == self._plugins[p]:
                     continue
@@ -196,12 +203,14 @@ class App():
                 self.set_button_image(p, None)
         else:
             for p in range(start, start + self.num_buttons - 2):
-                if None == self._plugins[p]:
-                    continue
+                if p >= num_plugins: break
+                #if None == self._plugins[p]:
+                #    continue
                 self.set_button_image(p + 1 - start, self._plugins[p].logo)
 
             # add a next
             self.set_button_image(self.num_buttons - 1, self._next_page_image)
+        self._log.debug("Default layout created")
 
     def _scroll(self):
         if not self._active_plugin:
@@ -327,7 +336,6 @@ class App():
         self._dim_counter = 0
         self._brightness = 100
         self._deck.set_brightness(self._brightness)
-
 
     def _show_help(self) -> None:
         if self._active_plugin and self._help_held:

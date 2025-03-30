@@ -180,7 +180,7 @@ class SubsonicPlugin(IPlayer):
 
     def _get_albums_by_filter(self, filter: str) -> list[Album]:
         self._log.info(f"Loading albums filtered by {filter}")
-        results = []
+        results: list[Album] = []
         try:
             returned = self._client.getAlbumList(filter)
             albums = returned["albumList"]
@@ -200,7 +200,7 @@ class SubsonicPlugin(IPlayer):
     
     def _get_albums_by_artist(self, artist : Artist) -> list[Album]:
         self._log.info(f"Loading albums for artist : {artist.display_name}")
-        results = []
+        results: list[Album] = []
         try:
             returned = self._client.getArtist(artist.id)
             artist = returned["artist"]
@@ -223,7 +223,7 @@ class SubsonicPlugin(IPlayer):
 
     def _get_tracks_by_album(self, album : Album) -> list[Track]:
         self._log.info(f"Loading tracks for album : {album.display_name}")
-        results = []
+        results: list[Track] = []
         try:
             returned = self._client.getAlbum(album.id)
             album = returned["album"]

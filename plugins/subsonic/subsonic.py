@@ -5,6 +5,7 @@ from ..shared.player.vlc_player import VlcPlayerEvents
 from ..shared.player.types import Artist, Album, Track
 from ..shared.player.iplayer import IPlayer
 import libsonic
+import random
 import textwrap
 import threading
 import time
@@ -45,7 +46,7 @@ class MySubsonicConnection(libsonic.Connection):
 
 class SubsonicPlugin(IPlayer):
 
-    partition_keys = [ "Latest", "Random", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X-Z", "#" ]
+    partition_keys = [ "Latest Albums", "Random Album", "Random Tracks", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X-Z", "#" ]
     
     def __init__(self, app, config, font) -> None:
         super().__init__(app, config, font)
@@ -71,11 +72,19 @@ class SubsonicPlugin(IPlayer):
                     case IPlayer.State.PARTITIONS:
                         # make sure we have artists loaded for this 
                         partition_key = self._partition_keys[self._partition_counter]
-                        size = len(self._artists[partition_key])
-                        if size > 0:
-                            self._artist_counter = 0
-                            self._show_artist()
-                            self._update_buttons()
+                        match partition_key.lower():
+                            case "latest albums":
+                                self._add_latest_albums()
+                            case "random album":
+                                self._add_random_album()
+                            case "random tracks":
+                                self._add_random_tracks()
+                            case _:
+                                size = len(self._artists[partition_key])
+                                if size > 0:
+                                    self._artist_counter = 0
+                                    self._show_artist()
+                                    self._update_buttons()
                         return
                     case IPlayer.State.ARTISTS:
                         # have we got albums loaded for this artist?
@@ -178,6 +187,7 @@ class SubsonicPlugin(IPlayer):
             case _:
                 return
 
+    ## simple getter, gets a basic album construct, but not the tracks etc
     def _get_albums_by_filter(self, filter: str) -> list[Album]:
         self._log.info(f"Loading albums filtered by {filter}")
         results: list[Album] = []
@@ -222,7 +232,7 @@ class SubsonicPlugin(IPlayer):
             return results
 
     def _get_tracks_by_album(self, album : Album) -> list[Track]:
-        self._log.info(f"Loading tracks for album : {album.display_name}")
+        self._log.info(f"Loading tracks for album : '{album.display_name}'")
         results: list[Track] = []
         try:
             returned = self._client.getAlbum(album.id)
@@ -241,7 +251,7 @@ class SubsonicPlugin(IPlayer):
                     index = int(song["track"])
                 track = Track(id, name, album["name"], album["artist"], index)
                 results.append(track)
-                self._log(f"Added track: {track}")
+                self._log.debug(f"Added track: {track}")
 
             # sort by track index, then display_name if no index
             return sorted(results, key = lambda x: ((x.index, x.display_name)) )
@@ -329,21 +339,14 @@ class SubsonicPlugin(IPlayer):
                     case IPlayer.State.PARTITIONS:
                         partition_key = self._partition_keys[self._partition_counter]
                         match partition_key.lower():
-                            case "latest":
-                                albums: list[Album] = self._get_albums_by_filter("newest")
-                                for album in albums:
-                                    self._enqueue_album(album)
-                                num_albums: int = len(albums)
-                                time.sleep(1)
-                                self._render(f"Latest:\n{num_albums} enqueued albums...\n")
-                            case "random":
-                                albums: list[Album] = self._get_albums_by_filter("random")
-                                for album in albums:
-                                    self._enqueue_album(album)
-                                num_albums: int = len(albums)
-                                time.sleep(1)
-                                self._render(f"Random:\n{num_albums} enqueued albums...\n")
-                        pass
+                            case "latest albums":
+                                self._add_latest_albums()
+                            case "random album":
+                                self._add_random_album()
+                            case "random tracks":
+                                self._add_random_tracks()
+                            case _:
+                                pass
                     case IPlayer.State.ARTISTS:
                         partition_key = self._partition_keys[self._partition_counter]
                         artist : Artist = self._artists[partition_key][self._artist_counter]
@@ -370,6 +373,32 @@ class SubsonicPlugin(IPlayer):
                     self._player.pause()
             case IPlayer.Buttons.NEXT:
                 self._player.next()
+
+    def _add_latest_albums(self) -> None:
+        albums: list[Album] = self._get_albums_by_filter("newest")
+        for album in albums:
+            self._enqueue_album(album)
+        num_albums: int = len(albums)
+        time.sleep(1)
+        self._render(f"Latest albums:\nEnqueued {num_albums} albums...\n")
+
+    def _add_random_album(self) -> None:
+        albums: list[Album] = self._get_albums_by_filter("random")
+        album: Album = albums[0]
+        self._enqueue_album(album)
+        time.sleep(1)
+        self._render(f"Enqueued album\n{album.display_name}\nby {album.artist_name}")
+
+    def _add_random_tracks(self) -> None:
+        albums: list[Album] = self._get_albums_by_filter("random")
+        for album in albums:
+            album.tracks = self._get_tracks_by_album(album)
+            num_tracks: int = len(album.tracks)
+            track: Track = album.tracks[random.randint(0, num_tracks - 1)]
+            self._enqueue(track)
+        num_albums: int = len(albums)
+        time.sleep(1)
+        self._render(f"Random:\nEnqueued {num_albums} tracks...\n")
 
     def _build_cache(self) -> defaultdict[:list] :
         partitions = defaultdict(list)

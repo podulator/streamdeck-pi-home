@@ -12,6 +12,6 @@ elif [ ${added} -ne 0 ]; then
 	exit 1
 else
 	# silent upgrade of pip
-	./venv/bin/activate && pip install -Ur ./requirements.txt 1>/dev/null 2>&1
+	source ./venv/bin/activate && pip install -Ur ./requirements.txt 1>/dev/null 2>&1
 	git pull | tail -n 1
 fi

@@ -17,11 +17,13 @@ profiling : bool = False
 
 def signal_handler(sig, frame):
     try:
-        deck.reset()
-        deck.close()
-        app.destroy()
+        if app:
+            app.destroy()
+            time.sleep(2)
+    except:
+        pass
     finally:
-        sys.exit(1)
+        sys.exit(0)
 
 def read_config(path : str = "config.json") -> dict:
     try:
@@ -63,9 +65,8 @@ if __name__ == "__main__":
     logging.basicConfig(level = log_level)
     log = logging.getLogger()
 
-    sys.argv.pop(0)
-    if len(sys.argv) > 0:
-        config = read_config(sys.argv[0])
+    if len(sys.argv) > 1:
+        config = read_config(sys.argv[1])
     else:
         config = read_config()
 
@@ -101,7 +102,9 @@ if __name__ == "__main__":
                     log.info("Sorry, this only works with Stream Deck +")
                     continue
                 deck = d
+                log.info(f"Found deck id: {d.product_id()}")
                 break
+
             if deck is None:
                 log.info("No deck found, sleeping")
                 time.sleep(5)
@@ -112,22 +115,24 @@ if __name__ == "__main__":
                     # Wait until all application threads have terminated (for this example,
                     # this is when all deck handles are closed).
                     for t in threading.enumerate():
-                        if t.name.lower() == "mainthread": continue
+                        if t.name.lower() == "mainthread":
+                            continue
                         try:
                             if t._is_stopped:
                                 t.join()
-                            else: time.sleep(1)
+                            else:
+                                time.sleep(1)
                         except RuntimeError:
-                            pass
+                            log.error("Runtime error being ignored")
                         except Exception as ex:
                             log.error(ex.args)
 
                 except Exception as ex:
                     log.error(f"generic error of type : {type(ex.args)}")
                     traceback.print_exc()
-                    if (deck and deck.is_open()):
-                        deck.reset()
-                        deck.close()
+                    if app:
+                        app.destroy()
+                        time.sleep(2)
                     deck = None
                     time.sleep(5)
 

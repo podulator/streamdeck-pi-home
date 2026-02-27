@@ -92,8 +92,7 @@
             "name": "Tado Heating",
             "class": "tado",
             "config": {
-                "username": "${STREAMDECK_TADO_USERNAME}",
-                "password": "${STREAMDECK_TADO_PASSWORD}"
+                "filepath": "${STREAMDECK_TADO_FILEPATH}"
             }
         },
         {

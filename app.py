@@ -36,6 +36,8 @@ class App():
         self._page_counter : int = 0
         self._num_pages : int = 0
         self._help_held : bool = False
+        self._help_timer: Optional[threading.Timer] = None
+        self._deck_lock: threading.Lock = threading.Lock()
 
     @property
     def num_buttons(self) -> int:
@@ -57,8 +59,11 @@ class App():
 
     @property
     def deck(self) -> Optional[StreamDeck]:
+        if self._destroyed:
+            return None
         if self._deck_available():
             return self._deck
+        return None
 
     @property
     def home_image(self) -> Optional[bytes]:
@@ -73,9 +78,13 @@ class App():
         return self._config.get("creds_path", ".creds")
 
     def set_button_image(self, index: int = 0, image: Optional[bytes] = None) -> None:
-        if not self._deck_available():
+        if self._destroyed or not self._deck_available():
             return
-        self._deck.set_key_image(index, image)
+        try:
+            with self._deck_lock:
+                self._deck.set_key_image(index, image)
+        except:
+            pass
 
     def load_image(self, path: str, size: int = 100) -> bytes:
         try:
@@ -149,10 +158,10 @@ class App():
         self._default_layout()
 
         self._log.debug("Starting main thread loop...")
-        threading.Thread(target=self._main_loop, daemon=True).start()
+        threading.Thread(target=self._main_loop, daemon=False).start()
 
     def _render_scroller_image(self, b: bytes) -> None:
-        if self._deck is None:
+        if self._destroyed or self._deck is None:
             return
         if self._active_plugin is not None:
             return
@@ -160,14 +169,26 @@ class App():
             return
         try:
             self._render_lock = True
-            self._deck.set_touchscreen_image(b, 0, 0, self.screen_width, self.screen_height)
+            with self._deck_lock:
+                self._deck.set_touchscreen_image(b, 0, 0, self.screen_width, self.screen_height)
         except Exception  as ex:
             self._log.error(ex)
-        self._render_lock = False
+        finally:
+            self._render_lock = False
 
     def destroy(self) -> bool:
+        self._destroyed = True
         success = False
         try:
+            # Unregister callbacks FIRST
+            if self._deck_available():
+                self._log.debug("Unregistering deck callbacks")
+                try:
+                    self._deck.set_key_callback(None)
+                    self._deck.set_dial_callback(None)
+                except:
+                    pass
+            
             self._log.debug("Cleaning plugins")
             for plugin in self._plugins:
                 plugin.deactivate()
@@ -177,11 +198,11 @@ class App():
             for scroller in self._scrollers:
                 scroller.deactivate()
             self._scrollers.clear()
+            
             success = True
         except Exception as ex:
             self._log.error(f"Destroy error : {ex}")
         finally:
-            self._destroyed = True
             return success
 
     def _default_layout(self):
@@ -227,10 +248,16 @@ class App():
                     self._render_scroller_image(self._scrollers[self._active_scroller].generate())
 
     def _dim(self, brightness_min : int):
+        if self._destroyed:
+            return
         self._brightness = max(brightness_min, self._brightness - 10)
         self._log.debug(f"Dimming to {self._brightness}")
         if self._deck_available():
-            self._deck.set_brightness(self._brightness)
+            try:
+                with self._deck_lock:
+                    self._deck.set_brightness(self._brightness)
+            except:
+                pass
 
     def _main_loop(self):
         self._log.info("Main thread loop starting")
@@ -248,11 +275,16 @@ class App():
         if self._deck_available():
             brightness_initial : int = brightness_dict.get("initial", brightness_min)
             self._log.debug(f"Setting initial brightness to: {brightness_initial}")
-            self._deck.set_brightness(brightness_initial)
+            try:
+                with self._deck_lock:
+                    self._deck.set_brightness(brightness_initial)
+            except:
+                pass
 
         while not self._destroyed:
             try:
                 self._loop_counter += 1
+   
                 if self._loop_counter >= App.LOOP_COUNTER_MAX:
                     # 15 secs
                     self._loop_counter = 0
@@ -273,13 +305,16 @@ class App():
                         else:
                             self._idle_counter = 0
 
-            except:
+            except Exception as ex:
+                self._log.critical(ex)
                 pass
             time.sleep(1.0)
 
         self._log.info("Main thread loop exiting")
 
     def _dial_change_callback(self, deck, dial, event, value):
+        if self._destroyed:
+            return
         try:
             if event == DialEventType.PUSH:
                 # if value is true, add the (dial + 1) ^ 2 to the mask
@@ -308,7 +343,12 @@ class App():
                         case 3:
                             self._brightness += value * 2
                             self._brightness = max(min(100, self._brightness), 10)
-                            self._deck.set_brightness(self._brightness)
+                            if not self._destroyed:
+                                try:
+                                    with self._deck_lock:
+                                        self._deck.set_brightness(self._brightness)
+                                except:
+                                    pass
                             return
                 elif event == DialEventType.PUSH:
                     match dial:
@@ -323,7 +363,12 @@ class App():
                                 self._brightness = 100
                             else:
                                 self._brightness = 10
-                            self._deck.set_brightness(self._brightness)
+                            if not self._destroyed:
+                                try:
+                                    with self._deck_lock:
+                                        self._deck.set_brightness(self._brightness)
+                                except:
+                                    pass
                             return
             else:
                 if event == DialEventType.PUSH:
@@ -333,22 +378,34 @@ class App():
         except Exception as ex:
             self._log.error(ex)
 
+        if self._destroyed:
+            return
         self._dim_counter = 0
         self._brightness = 100
-        self._deck.set_brightness(self._brightness)
+        try:
+            with self._deck_lock:
+                self._deck.set_brightness(self._brightness)
+        except:
+            pass
 
     def _show_help(self) -> None:
         if self._active_plugin and self._help_held:
             self._active_plugin.show_help()
 
     def _key_change_callback(self, deck, key, key_state):
+        if self._destroyed:
+            return
         try:
             self._log.debug("Key: " + str(key) + " state: " + str(key_state))
 
             brightness : int = self._brightness
             self._dim_counter = 0
             self._brightness = 100
-            self._deck.set_brightness(self._brightness)
+            try:
+                with self._deck_lock:
+                    self._deck.set_brightness(self._brightness)
+            except:
+                return
             if brightness <= self._config["brightness"]["press_to_wake"]:
                 self._log.debug("Setting brightness to 100 and bailing")
                 return
@@ -392,10 +449,13 @@ class App():
                         if key_state:
                             # start a help thread
                             self._help_held = True
-                            help_thread = threading.Timer(App.LONG_PRESS_TIME, self._show_help)
-                            help_thread.start()
+                            self._help_timer = threading.Timer(App.LONG_PRESS_TIME, self._show_help)
+                            self._help_timer.start()
                         else:
                             self._help_held = False
+                            if self._help_timer:
+                                self._help_timer.cancel()
+                                self._help_timer = None
                             if self._active_plugin.help_showing:
                                 self._active_plugin.hide_help()
                             else:

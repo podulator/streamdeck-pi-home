@@ -51,18 +51,17 @@ class TadoPlugin(IPlugin):
             if (None == self._tado):
                 self._render("Loading devices", 50)
 
-                filepath = self._config["filepath"]
-                if (not filepath):
+                if not self._config["filepath"]:
                     self._log.error("Token Filepath is required")
                     return False
-                self._tado = interface.Tado(token_file_path=filepath)
+                self._tado = interface.Tado(token_file_path=self._config["filepath"])
                 status = self._tado.device_activation_status()
                 if status != DeviceActivationStatus.COMPLETED:
                     ## go into auth flow
-                    auth_url = tado.device_verification_url()
+                    auth_url = self._tado.device_verification_url()
                     self._log.error(f"Need to authenticate at : {auth_url}")
                     self._render(auth_url)
-                    tado.device_activation()
+                    self._tado.device_activation()
 
             self._activated = True
             self._reset_state()
@@ -70,6 +69,7 @@ class TadoPlugin(IPlugin):
         except Exception as ex:
             self._log.error(ex)
             self._activated = False
+
         return self._activated
 
     def run_as_daemon(self) -> None:
@@ -144,7 +144,7 @@ class TadoPlugin(IPlugin):
             case TadoPlugin.State.ZONES:
                 if (dial != 0):
                     return
-                zi = self._tado.get_zone_state(self._zones[self._zone_index]["id"])
+                zi = self._tado.get_zone_state(self._zones[self._zone_index]["roomId"])
                 self._zone_info = {
                     "target": zi.target_temp, 
                     "info": zi
@@ -155,7 +155,7 @@ class TadoPlugin(IPlugin):
                     # write the new target temp, until next scheduled change
                     target = str(self._zone_info["target"])
                     self._render("Storing new target : " + target, 33)
-                    self._tado.set_zone_overlay(self._zones[self._zone_index]["id"], "TADO_MODE", set_temp = target)
+                    self._tado.set_zone_overlay(self._zones[self._zone_index]["roomId"], "TADO_MODE", set_temp = target)
                     self._show_zone_info()
             case TadoPlugin.State.DEVICES:
                 self._show_device_info(self._devices[self._device_index])
@@ -186,11 +186,11 @@ class TadoPlugin(IPlugin):
             self._render("Loading zones", 50)
             self._zones = self._tado.get_zones()
         current_zone = self._zones[self._zone_index]
-        self._render("Zone : " + current_zone["name"], 50)
+        self._render("Zone : " + current_zone["roomName"], 50)
 
     def _show_zone_info(self):
         self._state = TadoPlugin.State.ZONE_INFO
-        name : str = self._zones[self._zone_index]["name"]
+        name : str = self._zones[self._zone_index]["roomName"]
         temp : str = str(int(self._zone_info["info"].current_temp))
         target : str = str(int(self._zone_info["target"]))
         humidity : str = str(int(self._zone_info["info"].current_humidity))
@@ -202,31 +202,41 @@ class TadoPlugin(IPlugin):
         self._render(info)
 
     def _show_device_info(self, device):
-        connected = "Connected" if device["connectionState"]["value"] else "Disconnected"
-        match device["deviceType"]:
+        connected = "Connected" if device["connection"]["state"] else "Disconnected"
+        match device["type"]:
             case "IB01":
                 msg : str = textwrap.dedent(f"""\
-                    Base Station: {device['shortSerialNo']}
+                    Base Station: {device['serialNumber']}
                     {connected}
-                    Firmware: {device['currentFwVersion']}"""                  
+                    Firmware: {device['firmwareVersion']}"""                  
+                )
+            case "RU04":
+                msg : str = textwrap.dedent(f"""\
+                    Thermosatat: {device['serialNumber']}
+                    {connected}, 
+                    Battery state: {device['batteryState']}
+                    Firmware: {device['firmwareVersion']}"""
                 )
             case "SU02":
                 msg : str = textwrap.dedent(f"""\
-                    Thermostat: {device['shortSerialNo']}
-                    {connected}, Battery state: {device['batteryState']}
+                    Thermostat: {device['serialNumber']}
+                    {connected},
+                    Battery state: {device['batteryState']}
                     {device['characteristics']['capabilities']}"""                  
                 )
-            case "VA02":
+            case "VA02" | "VA04":
                 msg : str = textwrap.dedent(f"""\
-                    Valve : {device['shortSerialNo']}
-                    {connected}, Battery state: {device['batteryState']}
-                    Mounted: {device['orientation']} - [{device['mountingState']['value']}]"""                  
+                    Valve : {device['serialNumber']}
+                    {connected},
+                    Battery state: {device['batteryState']}
+                    Mounted: {device['mountingState']}"""                  
                 )
             case _:
                 msg : str = textwrap.dedent(f"""\
-                    Unknown Device : {device['shortSerialNo']}
-                    {connected}, Battery state: {device['batteryState']}
-                    {device['characteristics']['capabilities']}"""                  
+                    Unknown Device : {device['serialNumber']}
+                    {connected},
+                    Battery state: {device['batteryState']}
+                    {device['mountingState']}"""                  
                 )
         self._render(msg)
         pass
@@ -236,7 +246,7 @@ class TadoPlugin(IPlugin):
             self._render("Loading devices", 50)
             self._devices = self._tado.get_devices()
         current_device = self._devices[self._device_index]
-        self._render("Device : " + current_device["serialNo"], 50)
+        self._render("Device : " + current_device["serialNumber"], 50)
 
     def _show_weather(self):
         weather = self._tado.get_weather()

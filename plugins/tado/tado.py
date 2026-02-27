@@ -1,6 +1,7 @@
 from enum import Enum
 from ..IPlugin import IPlugin
 from PyTado import interface
+from PyTado.http import DeviceActivationStatus
 
 import textwrap
 
@@ -48,10 +49,20 @@ class TadoPlugin(IPlugin):
 
         try:
             if (None == self._tado):
-                if (not self._config["username"] or not self._config["password"]):
-                    self._log.error("Credentials are required")
+                self._render("Loading devices", 50)
+
+                filepath = self._config["filepath"]
+                if (not filepath):
+                    self._log.error("Token Filepath is required")
                     return False
-                self._tado = interface.Tado(self._config["username"], self._config["password"])
+                self._tado = interface.Tado(token_file_path=filepath)
+                status = self._tado.device_activation_status()
+                if status != DeviceActivationStatus.COMPLETED:
+                    ## go into auth flow
+                    auth_url = tado.device_verification_url()
+                    self._log.error(f"Need to authenticate at : {auth_url}")
+                    self._render(auth_url)
+                    tado.device_activation()
 
             self._activated = True
             self._reset_state()

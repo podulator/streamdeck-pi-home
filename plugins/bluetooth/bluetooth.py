@@ -32,6 +32,7 @@ class BluetoothPlugin(IPlugin):
         self._device_index : int = 0
         self._running_as_daemon : bool = False
         self._bt : BluetoothManager = BluetoothManager(app, self._callback)
+        self._notify_timer : threading.Timer = None
         self._help_message = "Bluetooth plugin\nBack | Status | Scan | Power\nForget | Info | Toggle Auto | N/A"
 
     def run_as_daemon(self) -> None:
@@ -203,12 +204,14 @@ class BluetoothPlugin(IPlugin):
             self._log.error(ex)
 
     def _callback(self, data : str):
-        if not self._activated: 
+        if not self._activated:
             return
         self._render(data)
         self._update_buttons()
-        timer = threading.Timer(2, self._show_default)
-        timer.start()
+        if self._notify_timer is not None:
+            self._notify_timer.cancel()
+        self._notify_timer = threading.Timer(2, self._show_default)
+        self._notify_timer.start()
 
     def _show_default(self):
         if not self._activated: 

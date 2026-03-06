@@ -30,6 +30,7 @@ class SettingsPlugin(IPlugin):
 	def __init__(self, app, config, font) -> None:
 		super().__init__(app, config, font)
 		self._images : list[bytes] = None
+		self._notify_timer : threading.Timer = None
 		self._help_message = "Settings plugin\nBack | Update | Reboot | Off\nInfo | Restart | Save | Wifi"
 
 	def activate(self) -> bool:
@@ -176,5 +177,7 @@ class SettingsPlugin(IPlugin):
 	def _notify(self, message : str, keep : bool = False):
 		self._render(message, self._font["font_size"])
 		if not keep:
-			timer = threading.Timer(5.0, self._update_state)
-			timer.start()
+			if self._notify_timer is not None:
+				self._notify_timer.cancel()
+			self._notify_timer = threading.Timer(5.0, self._update_state)
+			self._notify_timer.start()

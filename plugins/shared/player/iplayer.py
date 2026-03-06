@@ -66,6 +66,7 @@ class IPlayer(IPlugin):
         self._thread : threading.Thread = None
         self._running : bool = False
         self._play_next : bool = False
+        self._notify_timer : threading.Timer = None
         self._log : logging.Logger = logging.getLogger(__name__)
         self._log.setLevel(os.environ.get("LOGLEVEL", "INFO"))
         self._player = VlcPlayer(
@@ -143,8 +144,10 @@ class IPlayer(IPlugin):
                     self._render(message)
                     if not self._info_latch or not keep:
                         # restore our original state
-                        timer = threading.Timer(time, self._restore_state)
-                        timer.start()
+                        if self._notify_timer is not None:
+                            self._notify_timer.cancel()
+                        self._notify_timer = threading.Timer(time, self._restore_state)
+                        self._notify_timer.start()
                     else:
                         self._info_callback_lock = False
                 except:

@@ -193,7 +193,7 @@ class HuePlugin(IPlugin):
                 except KeyError as ex:
                     pass
 
-            if self._thread is None:
+            if self._thread is None or not self._thread.is_alive():
                 self._thread = threading.Thread(target = self._flush, daemon = True)
                 self._thread.start()
 

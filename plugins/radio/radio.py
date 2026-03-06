@@ -55,6 +55,7 @@ class RadioPlugin(IPlugin):
         self._bookmark_counter : int = 0
         self._running : bool = False
         self._thread : threading.Thread = None
+        self._notify_timer : threading.Timer = None
         self._player : VlcPlayer = VlcPlayer(app, self._on_player_callback)
 
         self._help_message = "Internet Radio plugin\nBack | Chan 1 | Chan 2 | Chan 3\nChan - | Stop | Play | Chan +"
@@ -221,8 +222,10 @@ class RadioPlugin(IPlugin):
                 self._render(message)
                 if not self._info_latch or not keep:
                     # restore our original state
-                    timer = threading.Timer(time, self._restore_state)
-                    timer.start()
+                    if self._notify_timer is not None:
+                        self._notify_timer.cancel()
+                    self._notify_timer = threading.Timer(time, self._restore_state)
+                    self._notify_timer.start()
                 else:
                     self._info_callback_lock = False
             except:

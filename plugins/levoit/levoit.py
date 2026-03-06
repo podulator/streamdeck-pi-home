@@ -72,6 +72,7 @@ class LevoitPlugin(IPlugin):
 		self._images : list[bytes] = None
 		self._thread : threading.Thread = None
 		self._poll_counter : int = 0
+		self._notify_timer : threading.Timer = None
 		self._help_message = "Levoit Air Filter plugin\nBack | Speed | Sleep | Power\n Info | Timer | Bright | Sleep"
 
 	def _poll(self):
@@ -108,8 +109,10 @@ class LevoitPlugin(IPlugin):
 	def _notify(self, message : str):
 		self._poll_counter = 0
 		self._render(message)
-		timer = threading.Timer(5, self._update_screen_and_state)
-		timer.start()
+		if self._notify_timer is not None:
+			self._notify_timer.cancel()
+		self._notify_timer = threading.Timer(5, self._update_screen_and_state)
+		self._notify_timer.start()
 
 	def activate(self) -> bool:
 		if not super().activate(): 

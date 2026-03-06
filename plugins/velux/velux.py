@@ -68,6 +68,7 @@ class VeluxPlugin(IPlugin):
         self._za_counter : int = 0
         self._shutter_counter : int = 0
         self._window_counter : int = 0
+        self._notify_timer : threading.Timer = None
         self._help_message = "Velux plugin\nBack | Info | Sensors | Zones\nBlinds | Windows | N/A | N/A"
 
     def activate(self) -> bool:
@@ -486,8 +487,10 @@ class VeluxPlugin(IPlugin):
     def _notify(self, message : str, reset_after : bool = False, wait : float = 2.0):
         self._render(message)
         if reset_after:
-            timer = threading.Timer(wait, self._update_screen)
-            timer.start()
+            if self._notify_timer is not None:
+                self._notify_timer.cancel()
+            self._notify_timer = threading.Timer(wait, self._update_screen)
+            self._notify_timer.start()
 
     def _update_buttons(self):
         # layout the images

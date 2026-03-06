@@ -73,6 +73,7 @@ class FireTvPlugin(IPlugin):
         self._volume_min : int = 0
         self._volume_max : int = 0
         self._thread : threading.Thread = None
+        self._notify_timer : threading.Timer = None
 
         self._help_message = "Fire TV plugin\nBack | Media | Live TV | Switch Input\nApps | Power | Alexa | Home"
 
@@ -174,8 +175,10 @@ class FireTvPlugin(IPlugin):
     def notify(self, message : str, keep : bool = False):
         self._render(message)
         if not keep:
-            timer = threading.Timer(5.0, self._update_display)
-            timer.start()
+            if self._notify_timer is not None:
+                self._notify_timer.cancel()
+            self._notify_timer = threading.Timer(5.0, self._update_display)
+            self._notify_timer.start()
 
     def dials_info(self) -> str:
         result : str = "Rotate            Vol.              D / U             L / R\n"

@@ -10,4 +10,5 @@ from plugins.radio.radio import RadioPlugin
 from plugins.settings.settings import SettingsPlugin
 from plugins.subsonic.subsonic import SubsonicPlugin
 from plugins.tado.tado import TadoPlugin
+from plugins.tuya.tuya import VacuumPlugin
 from plugins.velux.velux import VeluxPlugin

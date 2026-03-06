@@ -414,7 +414,7 @@ class FireTvPlugin(IPlugin):
         except ValueError:
             return False
         else:
-            return float(n).is_integer
+            return float(n).is_integer()
 
     def send_key(self, key : FireTvKeyCommands) -> None:
         self._log.debug(f"Sending key command : {key}")

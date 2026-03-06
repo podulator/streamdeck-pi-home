@@ -246,7 +246,7 @@ class HuePlugin(IPlugin):
         self._app.set_button_image(HuePlugin.Buttons.SCENES, self._images[HuePlugin.ImageKeys.SCENES])
         self._app.set_button_image(HuePlugin.Buttons.SHORTCUT, self._images[HuePlugin.ImageKeys.SHORTCUT])
         
-        self._app.set_button_image(HuePlugin.Buttons.COLOR, )
+        self._app.set_button_image(HuePlugin.Buttons.COLOR, None)
         self._app.set_button_image(HuePlugin.Buttons.BRIGHTNESS, self._images[HuePlugin.ImageKeys.BRIGHTNESS])
 
         power : bytes = None

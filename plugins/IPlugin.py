@@ -16,6 +16,7 @@ from . import radio as radio_plugin
 from . import settings as settings_plugin
 from . import subsonic as subsonic_plugin
 from . import tado as tado_plugin
+from . import tuya as tuya_plugin
 from . import velux as velux_plugin
 import time
 
@@ -298,6 +299,8 @@ class PluginFactory:
                 return subsonic_plugin.subsonic.SubsonicPlugin(app, config, font)
             case "tado":
                 return tado_plugin.tado.TadoPlugin(app, config, font)
+            case "tuya":
+                return tuya_plugin.tuya.VacuumPlugin(app, config, font)
             case "velux":
                 return velux_plugin.velux.VeluxPlugin(app, config, font)
         return None

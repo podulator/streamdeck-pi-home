@@ -121,7 +121,7 @@ class BluetoothDevice(BluetoothCtlInterface):
     def connect(self,) -> bool:
         try:
             if self._connected:
-                self.log.debug("Already connected, returning")
+                self._log.debug("Already connected, returning")
                 return True
 
             if not self.paired:
@@ -139,7 +139,6 @@ class BluetoothDevice(BluetoothCtlInterface):
             return True
         except (BluetoothError, Exception) as e:
             self._log.error(e)
-            self._connected_device = None
             return False
 
     def trust(self) -> bool:

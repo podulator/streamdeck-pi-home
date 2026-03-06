@@ -154,6 +154,16 @@
             }
         },
         {
+            "name": "Vacuum",
+            "class": "tuya",
+            "config": {
+                "device_id": "${STREAMDECK_TUYA_DEVICE_ID}",
+                "ip_address": "${STREAMDECK_TUYA_IP_ADDRESS}",
+                "local_key": "${STREAMDECK_TUYA_LOCAL_KEY}",
+                "protocol_version": "${STREAMDECK_TUYA_PROTOCOL_VERSION}"
+            }
+        },
+        {
             "name": "Core 400S air filter",
             "class": "levoit",
             "config": {

@@ -15,5 +15,6 @@ requests-cache>=1.1.1
 retry-requests>=2.0.0
 rgbxy>=0.5.0
 streamdeck>=0.9.5
+tinytuya>=1.17.6
 wheel>=0.42.0
 yfinance>=0.2.54

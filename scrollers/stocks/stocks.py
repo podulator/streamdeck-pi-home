@@ -85,6 +85,6 @@ class StocksScroller(IScroller):
                     )
                 except Exception as ex:
                     self._log.error(ex)
-                    break
+                    continue
             return results
     

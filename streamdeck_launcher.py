@@ -98,7 +98,7 @@ if __name__ == "__main__":
             for i, d in enumerate(streamdecks):
                 # This example only works with devices that have screens.
                 if (d.DECK_TYPE != 'Stream Deck +'):
-                    log.info(deck.DECK_TYPE)
+                    log.info(d.DECK_TYPE)
                     log.info("Sorry, this only works with Stream Deck +")
                     continue
                 deck = d

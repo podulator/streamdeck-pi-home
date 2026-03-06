@@ -18,11 +18,12 @@ from . import subsonic as subsonic_plugin
 from . import tado as tado_plugin
 from . import tuya as tuya_plugin
 from . import velux as velux_plugin
+import threading
 import time
 
 class IPlugin(ABC):
 
-    RenderLock : bool = False
+    _RenderLock : threading.Lock = threading.Lock()
     LongPressDelta : float = 1.0
 
     def __init__(self, app, config, font) -> None:
@@ -124,11 +125,10 @@ class IPlugin(ABC):
             return False
         if self._app.deck is None:
             return False
-        if IPlugin.RenderLock:
+        if not IPlugin._RenderLock.acquire(blocking=False):
             return False
         success : bool = False
         try:
-            IPlugin.RenderLock = True
             if font_size < 0:
                 font_size = self._font["font_size"]
             if not font_path:
@@ -137,8 +137,8 @@ class IPlugin(ABC):
             # set the cache
             self._cache = {
                 "text": text,
-                "font_size": font_size, 
-                "font_path": font_path, 
+                "font_size": font_size,
+                "font_path": font_path,
                 "bg_color": bg_color
             }
 
@@ -147,7 +147,8 @@ class IPlugin(ABC):
             success = True
         except Exception as ex:
             self._log.error(ex)
-        IPlugin.RenderLock = False
+        finally:
+            IPlugin._RenderLock.release()
         return success
 
     def _text_to_image(self, text : str, font_size : int, font_path : str, bg_color : str) -> bytes:

@@ -19,7 +19,7 @@ class App():
         self._active_plugin: Optional[IPlugin.IPlugin] = None
         self._scrollers: List[IScroller.IScroller] = None
         self._home_image: Optional[bytes] = None
-        self._render_lock: bool = False
+        self._render_lock: threading.Lock = threading.Lock()
         self._destroyed : bool = False
         self._active_scroller: int = 0
         self._dim_counter: int = 0
@@ -165,16 +165,15 @@ class App():
             return
         if self._active_plugin is not None:
             return
-        if self._render_lock:
+        if not self._render_lock.acquire(blocking=False):
             return
         try:
-            self._render_lock = True
             with self._deck_lock:
                 self._deck.set_touchscreen_image(b, 0, 0, self.screen_width, self.screen_height)
-        except Exception  as ex:
+        except Exception as ex:
             self._log.error(ex)
         finally:
-            self._render_lock = False
+            self._render_lock.release()
 
     def destroy(self) -> bool:
         self._destroyed = True

@@ -307,7 +307,6 @@ class IPlayer(IPlugin):
 
         except Exception as ex:
             self._log.error(ex)
-            pass
 
     def _show_partition(self) -> None:
         try:

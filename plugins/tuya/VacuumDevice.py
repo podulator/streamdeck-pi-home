@@ -57,6 +57,29 @@ class VacuumDevice(tinytuya.Device):
             self.set_status(True, int(self._VacuumParams.POWER_GO), nowait=nowait)
         self.set_value(self._VacuumParams.MODE, "chargego", nowait=nowait)
 
+    # status
+    # returns a dict struct of
+    # {
+    #   'POWER': True, 
+    #    'POWER_GO': False, 
+    #    'MODE': 'standby', 
+    #    'DIRECTION_CONTROL': 'stop', 
+    #    'STATUS': 'charging', 
+    #    'ELECTRICITY_LEFT': 47, 
+    #    'EDGE_BRUSH': 92, 
+    #    'ROLL_BRUSH': 96, 
+    #    'FILTER': 94, 
+    #    'RESET_EDGE_BRUSH': False, 
+    #    'RESET_ROLL_BRUSH': False, 
+    #    'RESET_FILTER': False, 
+    #    'SEEK': False, 
+    #    'SUCTION': 'auto', 
+    #    'CLEAN_TIME': 40, 
+    #    'FAULT': 0, 
+    #    'CISTERN': 'closed', 
+    #    'DUSTER_CLOTH': 100, 
+    #    'RESET_DUSTER_CLOTH': False
+    # }
     def status(self, nowait=False):
         result = {}
         try:

@@ -264,69 +264,104 @@ class SubsonicPlugin(IPlayer):
 
         try:
             action_parts = action.strip().split(":")
-            if len(action_parts) < 1:
+            if len(action_parts) < 2:
                 return
-            artist_name : str = action_parts.pop(0).lower()
-            artist_key : str = artist_name[0].upper()
-            artist : Artist = None
+            mode : str = action_parts.pop(0).lower()
 
-            match artist_key:
-                case "X", "Y", "Z":
-                    partition_key = "X-Z"
-                case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9":
-                    partition_key = "#"
-                case _:
-                    partition_key = artist_key
+            if mode == "playlist":
+                playlist_name : str = action_parts.pop(0).lower()
+                shuffle : bool = False
+                if len(action_parts) > 0:
+                    shuffle = True
 
-            if not artist_key in self._artists:
-                self._log.error(f"No partition {artist_key} fot artist : {artist_name}")
-                return
+                self._log.debug(f"Playlist {playlist_name} requested")
 
-            artist_partition : list[Artist] = self._artists[artist_key]
-            for a in artist_partition:
-                if a.name.lower() == artist_name:
-                    artist = a
-                    break
-        
-            if not artist:
-                self._log.error(f"Artist not found : {artist_name}")
-                return
+                playlists : dict = self._client.getPlaylists()
+                for playlist in playlists["playlists"]["playlist"]:
+                    if playlist_name == playlist["name"].lower():
+                        song_count : int = int(playlist["songCount"])
+                        self._log.debug(f"Found playlist {playlist_name} with {song_count} songs")
+                        songs = self._client.getPlaylist(playlist["id"])
 
-            if len(action_parts) == 0:
-                self._enqueue_artist(artist)
-            else:
-                album_name : str = action_parts.pop(0).lower()
-                album : Album = None
-                albums : list[Album] = self._get_albums_by_artist(artist)
+                        tracks : list[Track] = []
+                        for song in songs["playlist"]["entry"]:
+                            track = Track(song["id"], song["title"], song["album"], song["artist"], 0)
+                            tracks.append(track)
+                        
+                        if shuffle:
+                            random.shuffle(tracks)
+                        
+                        for track in tracks:
+                            self._enqueue(track)
 
-                for a in albums:
-                    if a.name.lower() == album_name:
-                        album = a
+                        if not self._player.playing:
+                            self._player.play()
+
                         break
+       
+            elif mode == "content":
 
-                if not album:
-                    self._log.error(f"Album not found : {album_name}")
+                artist_name : str = action_parts.pop(0).lower()
+                artist_key : str = artist_name[0].upper()
+                artist : Artist = None
+
+                match artist_key:
+                    case "X", "Y", "Z":
+                        partition_key = "X-Z"
+                    case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9":
+                        partition_key = "#"
+                    case _:
+                        partition_key = artist_key
+
+                if not artist_key in self._artists:
+                    self._log.error(f"No partition {artist_key} fot artist : {artist_name}")
+                    return
+
+                artist_partition : list[Artist] = self._artists[artist_key]
+                for a in artist_partition:
+                    if a.name.lower() == artist_name:
+                        artist = a
+                        break
+            
+                if not artist:
+                    self._log.error(f"Artist not found : {artist_name}")
                     return
 
                 if len(action_parts) == 0:
-                    self._enqueue_album(album)
+                    self._enqueue_artist(artist)
                 else:
-                    track_name : str = action_parts.pop(0).lower()
-                    track : Track = None
-                    tracks : list[Track] = self._get_tracks_by_album(album) 
+                    album_name : str = action_parts.pop(0).lower()
+                    album : Album = None
+                    albums : list[Album] = self._get_albums_by_artist(artist)
 
-                    for t in tracks:
-                        if t.name.lower() == track_name:
-                            track = t
+                    for a in albums:
+                        if a.name.lower() == album_name:
+                            album = a
                             break
 
-                    if not track:
-                        self._log.error(f"Track not found : {track_name}")
+                    if not album:
+                        self._log.error(f"Album not found : {album_name}")
                         return
-                    self._enqueue(track)
-        
-            if not self._player.playing:
-                self._player.play()
+
+                    if len(action_parts) == 0:
+                        self._enqueue_album(album)
+                    else:
+                        track_name : str = action_parts.pop(0).lower()
+                        track : Track = None
+                        tracks : list[Track] = self._get_tracks_by_album(album) 
+
+                        for t in tracks:
+                            if t.name.lower() == track_name:
+                                track = t
+                                break
+
+                        if not track:
+                            self._log.error(f"Track not found : {track_name}")
+                            return
+                        self._enqueue(track)
+            
+                if not self._player.playing:
+                    self._player.play()
 
         except Exception as ex:
             self._log.error(ex)

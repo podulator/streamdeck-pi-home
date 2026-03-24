@@ -239,6 +239,10 @@ Some basic settings
 
 Audio client for Navidrome and all subsonic compatible API's. 
 
+**NFC**
+
+Tag format for Artist, Album or Track :: subsonic::content:[artist]:[album]:[track]
+Tag format for Playlist :: subsonic::playlist:[name]:[optional shuffle]
 
 **Supported**
 

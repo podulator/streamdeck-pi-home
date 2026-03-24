@@ -76,6 +76,12 @@ class IPlugin(ABC):
     def on_dial_pushed(self, deck, dial, state):
         self._log.debug(f"{self._name} :: {self._class} :: handling dial push: {dial} state: {state}")
 
+    ### handles nfc tags etc
+    ## first part of string is the plugin slug, which is stripped off
+    # ## rest is bespoke, per plugin
+    def action_from_string(self, action: str):
+        self._log.debug(f"{self._name} :: {self._class} :: handling string action: {action}")
+
     @property
     def idle(self) -> bool:
         return True
@@ -241,6 +247,10 @@ class IPlugin(ABC):
     @property
     def name(self):
         return self._name
+
+    @property
+    def plugin_class(self):
+        return self._class
 
     @property 
     def _plugin_path(self):

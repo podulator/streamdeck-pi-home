@@ -259,6 +259,78 @@ class SubsonicPlugin(IPlayer):
             self._log.error(ex)
             return results
 
+    def action_from_string(self, action: str) -> None:
+        super().action_from_string(action)
+
+        try:
+            action_parts = action.strip().split(":")
+            if len(action_parts) < 1:
+                return
+            artist_name : str = action_parts.pop(0).lower()
+            artist_key : str = artist_name[0].upper()
+            artist : Artist = None
+
+            match artist_key:
+                case "X", "Y", "Z":
+                    partition_key = "X-Z"
+                case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9":
+                    partition_key = "#"
+                case _:
+                    partition_key = artist_key
+
+            if not artist_key in self._artists:
+                self._log.error(f"No partition {artist_key} fot artist : {artist_name}")
+                return
+
+            artist_partition : list[Artist] = self._artists[artist_key]
+            for a in artist_partition:
+                if a.name.lower() == artist_name:
+                    artist = a
+                    break
+        
+            if not artist:
+                self._log.error(f"Artist not found : {artist_name}")
+                return
+
+            if len(action_parts) == 0:
+                self._enqueue_artist(artist)
+            else:
+                album_name : str = action_parts.pop(0).lower()
+                album : Album = None
+                albums : list[Album] = self._get_albums_by_artist(artist)
+
+                for a in albums:
+                    if a.name.lower() == album_name:
+                        album = a
+                        break
+
+                if not album:
+                    self._log.error(f"Album not found : {album_name}")
+                    return
+
+                if len(action_parts) == 0:
+                    self._enqueue_album(album)
+                else:
+                    track_name : str = action_parts.pop(0).lower()
+                    track : Track = None
+                    tracks : list[Track] = self._get_tracks_by_album(album) 
+
+                    for t in tracks:
+                        if t.name.lower() == track_name:
+                            track = t
+                            break
+
+                    if not track:
+                        self._log.error(f"Track not found : {track_name}")
+                        return
+                    self._enqueue(track)
+        
+            if not self._player.playing:
+                self._player.play()
+
+        except Exception as ex:
+            self._log.error(ex)
+
     def activate(self) -> bool:
         if not super().activate(): 
             return False
@@ -279,11 +351,14 @@ class SubsonicPlugin(IPlayer):
                     self._log.info(self._client.getLicense())
                 except Exception as ex:
                     self._client = None
-                    self._info_callback({
-                        "time": 2, 
-                        "message": f"Couldn't connect to server\n{ex}", 
-                        "keep": True
-                    })
+                    self._player_callback(
+                        VlcPlayerEvents.ERROR_OCCURRED,
+                        {
+                            "time": 2, 
+                            "message": f"Couldn't connect to server\n{ex}", 
+                            "keep": True
+                        }
+                    )
                     self._log.error(f"Couldn't connect to server : {ex}")
                     self._activated = False
                     return False

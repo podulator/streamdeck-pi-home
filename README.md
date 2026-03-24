@@ -27,6 +27,11 @@ The screen automatically dims slowly with no inputs registered, 10% every minute
 Pressing any primary button with an Icon takes you to that plugin. 
 Pressing the 1st (Home) button resets everything. 
 
+**NFC**
+
+Can be (partitally) driven from an PN532 V2.0 NFC RFID Wireless Reader device. 
+Currently subsonic is implemented for instant playing of artist, album or track.
+
 ## Plugins
 
 Plugins are custom written, following [a simple interface](plugins/IPlugin.py).

@@ -3,12 +3,13 @@ import logging
 import os
 import threading
 import time
+
 from PIL import Image
 from plugins import IPlugin
 from scrollers import IScroller
 from StreamDeck.Devices.StreamDeck import StreamDeck, DialEventType
 from typing import List, Optional
-
+from nfc_reader import NfcDevice
 class App():
 
     LOOP_COUNTER_MAX: int = 15
@@ -19,6 +20,9 @@ class App():
         self._active_plugin: Optional[IPlugin.IPlugin] = None
         self._scrollers: List[IScroller.IScroller] = None
         self._home_image: Optional[bytes] = None
+        self._nfc : NfcDevice = None
+        self._main_thread : threading.Thread = None
+        self._nfc_thread : threading.Thread = None
         self._render_lock: threading.Lock = threading.Lock()
         self._destroyed : bool = False
         self._active_scroller: int = 0
@@ -38,6 +42,10 @@ class App():
         self._help_held : bool = False
         self._help_timer: Optional[threading.Timer] = None
         self._deck_lock: threading.Lock = threading.Lock()
+
+    @property
+    def config(self) -> dict:
+        return self._config
 
     @property
     def num_buttons(self) -> int:
@@ -109,7 +117,6 @@ class App():
             self._deck.reset()
             self._log.info(f"Opened '{self._deck.deck_type()}' device (serial number: '{self._deck.get_serial_number()}')")
 
-
         font : dict = self._config["font"]
         if self._plugins is None:
             plugins : list[IPlugin.IPlugin] = []
@@ -155,10 +162,15 @@ class App():
             self._deck.set_dial_callback(self._dial_change_callback)
             self._deck.set_brightness(self._brightness)
 
+        self._nfc = NfcDevice(device = self.config.get("nfc_device"), read_callback = self._nfc_read_callback)
+        self._nfc_thread = threading.Thread(target=self._nfc.read, daemon=True)
+        self._nfc_thread.start()
+
         self._default_layout()
 
         self._log.debug("Starting main thread loop...")
-        threading.Thread(target=self._main_loop, daemon=False).start()
+        self._main_thread = threading.Thread(target=self._main_loop, daemon=False)
+        self._main_thread.start()
 
     def _render_scroller_image(self, b: bytes) -> None:
         if self._destroyed or self._deck is None:
@@ -179,6 +191,9 @@ class App():
         self._destroyed = True
         success = False
         try:
+            if self._main_thread and self._main_thread.is_alive():
+                self._main_thread.join(timeout=1.0)
+
             # Unregister callbacks FIRST
             if self._deck_available():
                 self._log.debug("Unregistering deck callbacks")
@@ -187,7 +202,7 @@ class App():
                     self._deck.set_dial_callback(None)
                 except:
                     pass
-            
+
             self._log.debug("Cleaning plugins")
             for plugin in self._plugins:
                 plugin.deactivate()
@@ -197,7 +212,11 @@ class App():
             for scroller in self._scrollers:
                 scroller.deactivate()
             self._scrollers.clear()
-            
+
+            self._nfc.destroy()
+            if self._nfc_thread and self._nfc_thread.is_alive():
+                self._nfc_thread.join(timeout=1.0)
+
             success = True
         except Exception as ex:
             self._log.error(f"Destroy error : {ex}")
@@ -280,6 +299,7 @@ class App():
             except:
                 pass
 
+        
         while not self._destroyed:
             try:
                 self._loop_counter += 1
@@ -478,3 +498,34 @@ class App():
         self._loop_counter = App.LOOP_COUNTER_MAX
         self._idle_counter = 0
         self._default_layout()
+
+    def _nfc_read_callback(self, tags: str):
+        if self._destroyed:
+            return
+
+        for tag in tags.split(os.linesep):
+            if len(tag) == 0:
+                continue
+            self._log.debug(f"NFC tag read: {tag}")
+            parts: Array[str] = tag.split("::")
+
+            if len(parts) != 2:
+                self._log.error(f"Invalid NFC tag format: {tag}")
+                self._log.error("Expected format: <plugin_class>::<action>:<subaction>:...")
+
+            else:
+                plugin_class : str = parts[0]
+                plugin_payload : str = parts[1]
+
+                for plugin in self._plugins:
+                    if plugin.plugin_class == plugin_class:
+                        self._log.debug(f"Found plugin {plugin.name} for nfc tag class{parts[0]}")
+                        if self._active_plugin != plugin:
+                            self._deactivate_plugin()
+                            self._active_plugin = plugin
+                            if not plugin.activate():
+                                plugin.deactivate()
+                                break
+
+                        plugin.action_from_string(plugin_payload)                        
+                        break

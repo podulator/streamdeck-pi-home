@@ -218,6 +218,7 @@ class App():
                 if self._nfc_thread and self._nfc_thread.is_alive():
                     self._nfc_thread.join(timeout=1.0)
 
+            self._log.debug("Destroy completed")
             success = True
         except Exception as ex:
             self._log.error(f"Destroy error : {ex}")
@@ -324,6 +325,10 @@ class App():
                                 self._deactivate_plugin()
                         else:
                             self._idle_counter = 0
+                    
+                    if not self._nfc.is_listening:
+                        self._log.debug("Restarting NFC reader")
+                        self._nfc.read()
 
             except Exception as ex:
                 self._log.critical(ex)

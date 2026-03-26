@@ -13,6 +13,7 @@ class NfcDevice():
         self._log : logging.Logger = logging.getLogger(__name__)
         self._log.setLevel(os.environ.get("LOGLEVEL", "INFO"))
         self._device_name = device
+        self._listening : bool = False
 
     def _listen(self):
         if self._frontend:
@@ -67,11 +68,16 @@ class NfcDevice():
     def _on_tag_release(self, tag):
         self._log.debug("NFC Tag removed")
 
+    @property
+    def is_listening(self):
+        return self._listening
+
     def destroy(self):
         try:
             self._log.debug("Closing NFC frontend connection.")
             if None != self._frontend:
                 self._frontend.close()
+                self._listening = False
             self._log.debug("NFC frontend connection closed.")
         except Exception as ex:
             self._log.error(f"Error closing NFC frontend: {ex}")
@@ -82,6 +88,7 @@ class NfcDevice():
                 self._log.error("No NFC read callback method defined.")
             elif self._detect_device():
                 self._listen()
+                self._listening = True
 
         except OSError as e:
             if e.errno == errno.ENODEV:

@@ -509,6 +509,12 @@ class App():
         if self._destroyed:
             return
 
+        tags = tags.strip()
+        if len(tags) == 0:
+            return
+
+        self._dim(100)
+
         for tag in tags.split(os.linesep):
             if len(tag) == 0:
                 continue

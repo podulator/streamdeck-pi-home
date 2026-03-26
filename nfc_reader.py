@@ -54,7 +54,9 @@ class NfcDevice():
                 for i, record in enumerate(tag.ndef.records):
                     self._log.debug(f"Record {i}: {record}")
                     if isinstance(record, ndef.TextRecord):
-                        messages.append(record.text)
+                        payload : str = record.text.strip()
+                        if len(payload) > 0:
+                            messages.append(payload)
                     else:
                         self._log.error(f"[{i + 1}] (non-text record: type={record.type})")
 
@@ -62,7 +64,8 @@ class NfcDevice():
             self._log.error(ex)
 
         finally:
-            self._read_callback(os.linesep.join(messages))
+            if len(messages) > 0:
+                self._read_callback(os.linesep.join(messages))
             return success
 
     def _on_tag_release(self, tag):

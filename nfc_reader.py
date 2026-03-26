@@ -19,9 +19,11 @@ class NfcDevice():
         if self._frontend:
             try:
                 self._log.debug("Setting NFC frontend to listen.")
+                self._listening = True
                 ## this is blocking
                 self._frontend.connect(rdwr={"on-connect": self._on_tag_read, "beep-on-connect": False, "on-release": self._on_tag_release})
             except Exception as ex:
+                self._listening = False
                 self._log.error(f"Error connecting to NFC frontend: {ex}")
 
     def _detect_device(self) -> bool:
@@ -91,7 +93,6 @@ class NfcDevice():
                 self._log.error("No NFC read callback method defined.")
             elif self._detect_device():
                 self._listen()
-                self._listening = True
 
         except OSError as e:
             if e.errno == errno.ENODEV:

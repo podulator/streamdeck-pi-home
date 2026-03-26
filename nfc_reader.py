@@ -70,7 +70,8 @@ class NfcDevice():
     def destroy(self):
         try:
             self._log.debug("Closing NFC frontend connection.")
-            self._frontend.close()
+            if None != self._frontend:
+                self._frontend.close()
             self._log.debug("NFC frontend connection closed.")
         except Exception as ex:
             self._log.error(f"Error closing NFC frontend: {ex}")

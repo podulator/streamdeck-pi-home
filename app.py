@@ -213,9 +213,10 @@ class App():
                 scroller.deactivate()
             self._scrollers.clear()
 
-            self._nfc.destroy()
-            if self._nfc_thread and self._nfc_thread.is_alive():
-                self._nfc_thread.join(timeout=1.0)
+            if None != self._nfc:
+                self._nfc.destroy()
+                if self._nfc_thread and self._nfc_thread.is_alive():
+                    self._nfc_thread.join(timeout=1.0)
 
             success = True
         except Exception as ex:

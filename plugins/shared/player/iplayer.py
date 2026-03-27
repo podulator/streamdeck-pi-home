@@ -1,7 +1,7 @@
 from collections import defaultdict
 from enum import auto, IntEnum
 from ...IPlugin import IPlugin
-from .types import Artist, Album, Track
+from .types import Artist, Album, Track, Playlist
 from .vlc_player import VlcPlayer, VlcPlayerEvents
 
 import logging
@@ -39,7 +39,10 @@ class IPlayer(IPlugin):
         NEXT = auto()
 
     class ImageKeys(IntEnum):
-        ARTIST = 0
+        PLAYLIST = 0
+        RANDOM = auto()
+        LATEST = auto()
+        ARTIST = auto()
         ALBUM = auto()
         TRACK = auto()
         LOOP_ON = auto()
@@ -52,13 +55,13 @@ class IPlayer(IPlugin):
         PAUSED = auto()
         NEXT = auto()
 
-    image_keys = [ "artist.png", "album.png", "track.png", "loop-on.png", "loop-off.png", "shuffle.png", "add.png", "stop.png", "play.png", "playing.png", "paused.png", "next.png" ]
+    image_keys = [ "playlist.png", "random.png", "latest.png", "artist.png", "album.png", "track.png", "loop-on.png", "loop-off.png", "shuffle.png", "add.png", "stop.png", "play.png", "playing.png", "paused.png", "next.png" ]
 
     def __init__(self, app, config, font) -> None:
         super().__init__(app, config, font)
 
-        self._state = IPlayer.State.NONE
-        self._toggle_state = IPlayer.ToggleState.NONE
+        self._state : IPlayer.State = IPlayer.State.NONE
+        self._toggle_state : IPlayer.ToggleState = IPlayer.ToggleState.NONE
         self._client = None
         self._images : list[bytes] = None
         self._info_latch : bool = True
@@ -79,8 +82,9 @@ class IPlayer(IPlugin):
         self._artist_counter : int = 0
         self._album_counter : int = 0
         self._track_counter : int = 0
-        self._playlist_counter : int = -1
+        self._playlist_counter : int = 0
         self._artists : defaultdict[str, Artist] = defaultdict(list)
+        self._playlists : list[Playlist] = []
         self._last_enqueued_track : Track = None
         self._last_enqueued_album : Album = None
         self._last_enqueued_artist : Artist = None
@@ -167,6 +171,7 @@ class IPlayer(IPlugin):
                         if size > 0:
                             self._partition_counter = self._wrap(self._partition_counter, size)
                             self._show_partition()
+                            self._update_buttons()
                     case IPlayer.State.ARTISTS:
                         self._artist_counter += value
                         partition_key : str = self._partition_keys[self._partition_counter]
@@ -194,6 +199,11 @@ class IPlayer(IPlugin):
                         if size > 0: 
                             self._track_counter = self._wrap(self._track_counter, size)
                             self._show_track()
+                    case IPlayer.State.PLAYLIST:
+                        self._playlist_counter += value
+                        self._playlist_counter = self._wrap(self._playlist_counter, len(self._playlists))
+                        self._show_playlist()
+                        self._update_buttons()
                     case _:
                         return
             case 1:
@@ -264,8 +274,9 @@ class IPlayer(IPlugin):
                     self._show_partition()
                 case IPlayer.State.NONE:
                     self._show_partition()
+                case IPlayer.State.PLAYLIST:
+                    self._show_playlist()
                 case _:
-                    # playlist
                     pass
 
         self._update_buttons()
@@ -283,13 +294,24 @@ class IPlayer(IPlugin):
                 case IPlayer.State.NONE:
                     pass
                 case IPlayer.State.PARTITIONS:
-                    self._app.set_button_image(IPlayer.Buttons.ARTISTS, self._images[IPlayer.ImageKeys.ARTIST])
+                    
+                    partition_key : str = self._partition_keys[self._partition_counter].lower()
+                    if partition_key.startswith("latest"):
+                        self._app.set_button_image(IPlayer.Buttons.ARTISTS, self._images[IPlayer.ImageKeys.LATEST])
+                    elif partition_key.startswith("playlists"):
+                        self._app.set_button_image(IPlayer.Buttons.ARTISTS, self._images[IPlayer.ImageKeys.PLAYLIST])
+                    elif partition_key.startswith("random"):
+                        self._app.set_button_image(IPlayer.Buttons.ARTISTS, self._images[IPlayer.ImageKeys.RANDOM])
+                    else:
+                        self._app.set_button_image(IPlayer.Buttons.ARTISTS, self._images[IPlayer.ImageKeys.ARTIST])
                 case IPlayer.State.ARTISTS:
                     self._app.set_button_image(IPlayer.Buttons.ARTISTS, self._images[IPlayer.ImageKeys.ARTIST])
                 case IPlayer.State.ALBUMS:
                     self._app.set_button_image(IPlayer.Buttons.ARTISTS, self._images[IPlayer.ImageKeys.ALBUM])
                 case IPlayer.State.TRACKS:
                     self._app.set_button_image(IPlayer.Buttons.ARTISTS, self._images[IPlayer.ImageKeys.TRACK])
+                case IPlayer.State.PLAYLIST:
+                    self._app.set_button_image(IPlayer.Buttons.ARTISTS, self._images[IPlayer.ImageKeys.PLAYLIST])
 
             # toggle loop button
             if self._player.loop:
@@ -363,6 +385,17 @@ class IPlayer(IPlugin):
         except:
             pass
 
+    def _show_playlist(self) -> None:
+        try:
+            self._state = IPlayer.State.PLAYLIST
+            playlist : Playlist = self._playlists[self._playlist_counter]
+
+            self._log.debug(f"show_playlist :: {playlist.display_name}")
+            self._render(f"Playlist\n  :- {playlist.display_name}")
+
+        except Exception as ex:
+            self._log.error(ex)
+
     def _show_toggle_state(self) -> None:
         try:
             match self._toggle_state:
@@ -381,29 +414,14 @@ class IPlayer(IPlugin):
         except Exception as ex:
             self._log.error(ex)
 
-    def _show_playlist(self) -> None:
-        try:
-            track = self._player.playlist[self._playlist_counter]
-            size = len(self._player.playlist)
-            self._player_callback(
-                VlcPlayerEvents.INFO_MESSAGE, 
-                {
-                    "time": 0.5, 
-                    "message": f"Playlist\n({self._playlist_counter + 1}/{size}) : {track.display_name}", 
-                    "keep": True
-                }
-            )
-        except:
-            pass
-
-    def _enqueue(self, track : Track) -> None:
+    def _enqueue(self, track : Track, notify : bool = True) -> None:
         if self._last_enqueued_track == track:
             self._last_enqueued_track = None
             return
         try:
             if not track.url:
                 track.url = self._get_stream_for_track(track)
-            self._player.enqueue(track)
+            self._player.enqueue(track, notify)
             self._last_enqueued_track = track
         except Exception as ex:
             self._log.error(ex)
@@ -433,3 +451,15 @@ class IPlayer(IPlugin):
             self._last_enqueued_artist = artist
         except Exception as ex:
             self._log.error(ex)
+
+    def _enqueue_playlist(self) -> None:
+        playlist: Playlist = self._playlists[self._playlist_counter]
+        self._render("Adding Playlist...")
+        tracks: list[Track] = self._get_tracks_for_playlist_id(playlist.id)
+        for track in tracks:
+            self._enqueue(track, False)
+
+        self._player_callback(
+            VlcPlayerEvents.INFO_MESSAGE, 
+            { "time": 2, "message": f"Added: {playlist.display_name}", "keep": False }
+        )

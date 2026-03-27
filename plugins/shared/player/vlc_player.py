@@ -341,7 +341,7 @@ class VlcPlayer:
         if self._rotation_counter > 1:
             self._rotation_counter = 0
 
-    def enqueue(self, track : Track) -> None:
+    def enqueue(self, track : Track, notify : bool = True) -> None:
         if self.loop and self._now_playing is not None:
             try:
                 index : int = max(0, self.playlist.index(self._now_playing))
@@ -352,7 +352,8 @@ class VlcPlayer:
             self.playlist.append(track)
         self._log.debug(f"Added track {track.display_name} - ({track.index})")
         self._log.debug(f"Playlist size : {len(self.playlist)}")
-        self._info_callback("Added", 0.5, False)
+        if notify:
+            self._info_callback("Added", 0.5, False)
 
     def enqueue_album(self, name : str, tracks : list[Track]) -> None:
         self.playlist.extend(tracks)

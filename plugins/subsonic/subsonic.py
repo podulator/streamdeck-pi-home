@@ -2,7 +2,7 @@ from collections import defaultdict
 from libsonic.connection import API_VERSION
 from urllib.parse import urlencode
 from ..shared.player.vlc_player import VlcPlayerEvents
-from ..shared.player.types import Artist, Album, Track
+from ..shared.player.types import Artist, Album, Track, Playlist
 from ..shared.player.iplayer import IPlayer
 import libsonic
 import random
@@ -46,20 +46,20 @@ class MySubsonicConnection(libsonic.Connection):
 
 class SubsonicPlugin(IPlayer):
 
-    partition_keys = [ "Latest Albums", "Random Album", "Random Tracks", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X-Z", "#" ]
+    partition_keys = [ "Playlists", "Latest Albums", "Random Album", "Random Tracks", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X-Z", "#" ]
     
     def __init__(self, app, config, font) -> None:
         super().__init__(app, config, font)
         # reset everything
         
-        self._state = IPlayer.State.NONE
-        self._toggle_state = IPlayer.ToggleState.NONE
-        self._info_latch = True
-        self._partition_counter = 0
-        self._artist_counter = 0
-        self._album_counter = 0
-        self._track_counter = 0
-        self._playlist_counter = -1
+        self._info_latch : bool = True
+        self._partition_counter : int = 0
+        self._playlist_counter : int = 0
+        self._artist_counter : int = 0
+        self._album_counter : int = 0
+        self._track_counter : int = 0
+
+        self._playlists : list[Playlist] = []
 
     def on_dial_pushed(self, deck, dial, state):
         super().on_dial_pushed(deck, dial,state)
@@ -71,8 +71,15 @@ class SubsonicPlugin(IPlayer):
                 match self._state:
                     case IPlayer.State.PARTITIONS:
                         # make sure we have artists loaded for this 
-                        partition_key = self._partition_keys[self._partition_counter]
+                        partition_key : str = self._partition_keys[self._partition_counter]
                         match partition_key.lower():
+                            case "playlists":
+                                if len(self._playlists) == 0:
+                                    self._playlists = self._get_playlists()
+                                if len(self._playlists) > 0:
+                                    self._playlist_counter = 0
+                                    self._show_playlist()
+                                    self._update_buttons()
                             case "latest albums":
                                 self._add_latest_albums()
                             case "random album":
@@ -133,6 +140,9 @@ class SubsonicPlugin(IPlayer):
                         album = artist.albums[self._album_counter]
                         track : Track = album.tracks[self._track_counter]
                         self._enqueue(track)
+                        return
+                    case IPlayer.State.PLAYLIST:
+                        self._enqueue_playlist()
                         return
                     case _:
                         return
@@ -259,6 +269,45 @@ class SubsonicPlugin(IPlayer):
             self._log.error(ex)
             return results
 
+    def _get_playlists(self) -> list[Playlist]:
+        results: list[Playlist] = []
+        try:
+            returned = self._client.getPlaylists()
+            playlists = returned["playlists"]
+            if None != playlists:
+                for playlist in playlists["playlist"]:
+                    results.append(Playlist(playlist["id"], playlist["name"], int(playlist["songCount"])))
+
+        except Exception as ex:
+            self._log.error(ex)
+
+        return results
+
+    def _get_playlist_by_name(self, search: str) -> list[Playlist]:
+        results : list[Playlist] = []
+        try:
+            playlists : dict = self._client.getPlaylists()
+            for playlist in playlists["playlists"]["playlist"]:
+                 if playlist_name == playlist["name"].lower():
+                    print(playlist)
+        except Exception as ex:
+            print(ex)
+        return results
+
+    def _get_tracks_for_playlist_id(self, playlist_id : str, shuffle : bool = False) -> list[Track]:
+
+        songs : dict = self._client.getPlaylist(playlist_id)
+
+        tracks : list[Track] = []
+        for song  in songs["playlist"]["entry"]:
+            track : Track = Track(song["id"], song["title"], song["album"], song["artist"], 0)
+            tracks.append(track)
+           
+        if shuffle:
+            random.shuffle(tracks)
+
+        return tracks
+
     def action_from_string(self, action: str) -> None:
         super().action_from_string(action)
 
@@ -281,16 +330,8 @@ class SubsonicPlugin(IPlayer):
                     if playlist_name == playlist["name"].lower():
                         song_count : int = int(playlist["songCount"])
                         self._log.debug(f"Found playlist {playlist_name} with {song_count} songs")
-                        songs = self._client.getPlaylist(playlist["id"])
+                        tracks : list[Track] = self._get_tracks_for_playlist_id(playlist["id"], shuffle)
 
-                        tracks : list[Track] = []
-                        for song in songs["playlist"]["entry"]:
-                            track = Track(song["id"], song["title"], song["album"], song["artist"], 0)
-                            tracks.append(track)
-                        
-                        if shuffle:
-                            random.shuffle(tracks)
-                        
                         for track in tracks:
                             self._enqueue(track)
 
@@ -472,6 +513,8 @@ class SubsonicPlugin(IPlayer):
                         album : Album = artist.albums[self._album_counter]
                         track : Track = album.tracks[self._track_counter]
                         self._enqueue(track)
+                    case IPlayer.State.PLAYLIST:
+                        self._enqueue_playlist()
                     case _:
                         pass
             case IPlayer.Buttons.STOP:

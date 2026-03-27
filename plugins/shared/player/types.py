@@ -162,3 +162,51 @@ class Track():
     @display_name.setter
     def display_name(self, value : str) -> None:
         self._display_name = string.capwords(value.replace("_", " "))
+
+class Playlist():
+
+    key : str = "Playlist"
+
+    def __init__(self, id : str, name : str, song_count : int = 0) -> None:
+        self._id : str = id
+        self._name : str = name
+        self._display_name : str = string.capwords(name.replace("_", " "))
+        self._num_tracks : int = song_count
+        self._tracks : list[Track] = []
+
+    def __lt__(self, other):
+        return isinstance(other, Playlist) and self.index < other.index
+
+    def __str__(self) -> str:
+        return json.dumps(self.toJSON())
+
+    def toJSON(self) -> dict:
+        return {
+            "id" : self.id,
+            "name" : self.name,
+            "num_tracks": self.num_tracks
+        }
+
+    @property
+    def id(self) -> str:
+        return self._id
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def num_tracks(self) -> int:
+        return self._num_tracks
+
+    @property
+    def tracks(self) -> list[Track]:
+        return self._tracks
+
+    @property
+    def display_name(self):
+        return self._display_name
+
+    @display_name.setter
+    def display_name(self, value : str) -> None:
+        self._display_name = string.capwords(value.replace("_", " "))

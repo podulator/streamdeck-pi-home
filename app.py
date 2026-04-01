@@ -537,6 +537,7 @@ class App():
                             self._active_plugin = plugin
                             if not plugin.activate():
                                 plugin.deactivate()
+                                self._active_plugin = None
                                 break
 
                         plugin.action_from_string(plugin_payload)                        

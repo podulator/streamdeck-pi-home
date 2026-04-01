@@ -1,3 +1,5 @@
 # Test dependencies — separate from main requirements.txt
 # Install with: pip install -r requirements-test.txt
 pytest>=7.4
+Pillow
+envsubst

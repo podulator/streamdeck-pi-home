@@ -9,7 +9,6 @@ Covers:
 - Font and brightness defaults applied by the launcher
 """
 import json
-import os
 import pytest
 from unittest.mock import patch, mock_open, MagicMock
 from pathlib import Path
@@ -45,7 +44,7 @@ class TestReadConfig:
         assert result["creds_path"] == ".creds"
         assert result["plugins"] == []
 
-    def test_envsubst_expands_variables(self, tmp_path):
+    def test_envsubst_expands_variables(self, tmp_path, monkeypatch):
         """${VAR} placeholders should be replaced with env var values."""
         config_data = {
             "creds_path": "${MY_CREDS_DIR}",
@@ -57,16 +56,9 @@ class TestReadConfig:
 
         read_config = self._get_read_config()
 
-        # streamdeck_launcher captures envsubst via 'from envsubst import envsubst'
-        # so we must patch the name on the launcher module directly.
-        import streamdeck_launcher as _launcher
-        import os
-        os.environ["MY_CREDS_DIR"] = "/tmp/test-creds"
-        try:
-            result = read_config(str(config_file))
-            assert result["creds_path"] == "/tmp/test-creds"
-        finally:
-            del os.environ["MY_CREDS_DIR"]
+        monkeypatch.setenv("MY_CREDS_DIR", "/tmp/test-creds")
+        result = read_config(str(config_file))
+        assert result["creds_path"] == "/tmp/test-creds"
 
     def test_missing_file_returns_default(self):
         """If config file doesn't exist, read_config returns a default config."""

@@ -14,23 +14,9 @@ fi
 # Activate
 source "$VENV_DIR/bin/activate"
 
-# Install test deps if pytest isn't available
-if ! python -c "import pytest" &>/dev/null; then
-    echo "Installing test dependencies from $REQUIREMENTS..."
-    pip install -q -r "$REQUIREMENTS"
-fi
-
-# Also install Pillow if not present (needed for conftest stubs to import cleanly)
-if ! python -c "import PIL" &>/dev/null; then
-    echo "Installing Pillow (required by project imports)..."
-    pip install -q Pillow
-fi
-
-# Install envsubst if not present
-if ! python -c "import envsubst" &>/dev/null; then
-    echo "Installing envsubst..."
-    pip install -q envsubst
-fi
+# Install all test dependencies from the single source of truth
+echo "Installing test dependencies from $REQUIREMENTS..."
+pip install -q -r "$REQUIREMENTS"
 
 echo ""
 echo "Running tests..."

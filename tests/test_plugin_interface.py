@@ -126,19 +126,25 @@ class TestIPluginHelp:
         """show_help() should save the previous render cache so hide_help() can restore it."""
         plugin = _make_minimal_plugin(mock_app, font_config)
         plugin._activated = True
-        plugin._cache = {
-            "text": "Previous content",
-            "font_size": 40,
-            "font_path": "font/test.otf",
-            "bg_color": "black",
-        }
+
+        # Do an initial render to populate the cache with real content
+        with patch.object(plugin, "_text_to_image", return_value=b"\x00"):
+            plugin._render("Previous content", 40, "font/test.otf", "black")
+
         original_cache = plugin._cache.copy()
 
-        with patch.object(plugin, "_render", return_value=True):
+        # show_help calls _render which would overwrite _cache, but then restores it
+        with patch.object(plugin, "_text_to_image", return_value=b"\x00"):
             plugin.show_help()
 
-        # The saved cache should reflect the state before show_help was called
+        # Cache should be restored to the pre-help state
         assert plugin._cache == original_cache
+
+        # hide_help should re-render the original content and clear help flag
+        with patch.object(plugin, "_text_to_image", return_value=b"\x00"):
+            plugin.hide_help()
+        assert plugin.help_showing is False
+        assert plugin._cache["text"] == "Previous content"
 
     def test_help_showing_false_by_default(self, mock_app, font_config):
         """help_showing should be False on a freshly constructed plugin."""

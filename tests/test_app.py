@@ -269,6 +269,8 @@ class TestPluginManagement:
 
         plugin_a.activate.assert_not_called()
         assert app._active_plugin is None
+        # Wake side-effect: brightness should be restored to 100
+        assert app._brightness == 100
 
 
 # ---------------------------------------------------------------------------
@@ -378,3 +380,18 @@ class TestNfcRouting:
         app._nfc_read_callback("blank::action")
 
         plugin_a.activate.assert_not_called()
+
+    def test_nfc_activate_failure_clears_plugin(self, app_with_plugins):
+        """If plugin.activate() returns False via NFC, active plugin should be cleared."""
+        app, plugin_a, _ = app_with_plugins
+        plugin_a.plugin_class = "blank"
+        plugin_a.activate.return_value = False
+        app._active_plugin = None
+
+        app._nfc_read_callback("blank::some_action")
+
+        plugin_a.activate.assert_called_once()
+        plugin_a.deactivate.assert_called_once()
+        # action_from_string should NOT be called since activate failed
+        plugin_a.action_from_string.assert_not_called()
+        assert app._active_plugin is not plugin_a

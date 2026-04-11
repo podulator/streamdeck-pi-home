@@ -46,7 +46,7 @@ class StocksScroller(IScroller):
         expire : timedelta = timedelta(seconds = StocksScroller.cache_time)
         symbols_str : list[str] = [ d.get("symbol") for d in  symbols]
         symbol_list : str = ' '.join(symbols_str).replace(".", "-")
-        response = yf.Tickers(tickers = symbol_list, session = sess)
+        response = yf.Tickers(tickers = symbol_list)
         now : str = datetime.now().strftime("%H:%M")
         results : list[Dict] = []
         for sy in symbols:

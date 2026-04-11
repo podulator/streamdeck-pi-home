@@ -1,7 +1,6 @@
 from ..IScroller import IScroller
 from datetime import datetime
 from decimal import Decimal, Context
-from requests_cache import CachedSession
 from typing import Dict
 
 import yfinance as yf
@@ -45,46 +44,43 @@ class StocksScroller(IScroller):
     def _get_prices(self, symbols : list[Dict]) -> list[Dict]:
 
         expire : timedelta = timedelta(seconds = StocksScroller.cache_time)
-        with CachedSession(cache_name = StocksScroller.cache_name, expire_after = expire) as sess: 
-            sess.headers['User-agent'] = f"{StocksScroller.cache_name}/1.0"
-            symbols_str : list[str] = [ d.get("symbol") for d in  symbols]
-            symbol_list : str = ' '.join(symbols_str).replace(".", "-")
-            response = yf.Tickers(tickers = symbol_list, session = sess)
-            now : str = datetime.now().strftime("%H:%M")
-            results : list[Dict] = []
-            for sy in symbols:
-                try:
-                    symbol : str = sy.get("symbol").replace(".", "-")
-                    name : str = sy.get("name")
-                    ticker : yf.Ticker = response.tickers[symbol]
-                    if not ticker or not ticker.info:
-                        continue
-                    price : Decimal = Context(prec=6).create_decimal(ticker.info["currentPrice"]).quantize(Decimal("0.00"))
-                    open_price : Decimal = Context(prec=6).create_decimal(ticker.info["open"]).quantize(Decimal("0.00"))
-                    currency_str : str = response.tickers[symbol].info["currency"]
-                    match currency_str:
-                        case "USD":
-                            currency = "$"
-                        case "EUR":
-                            currency = "€"
-                        case "GBP":
-                            currency = "£"
-                        case _:
-                            currency = "?"
-
-                    change_f : float = (price / open_price * 100) - 100
-                    change : Decimal = Context(prec=2).create_decimal(change_f).quantize(Decimal("0.00"))
-                    results.append({
-                        "name" : name,
-                        "symbol" : symbol, 
-                        "price": price,
-                        "currency": currency,
-                        "change": change,
-                        "timestamp": now
-                        }
-                    )
-                except Exception as ex:
-                    self._log.error(ex)
+        symbols_str : list[str] = [ d.get("symbol") for d in  symbols]
+        symbol_list : str = ' '.join(symbols_str).replace(".", "-")
+        response = yf.Tickers(tickers = symbol_list, session = sess)
+        now : str = datetime.now().strftime("%H:%M")
+        results : list[Dict] = []
+        for sy in symbols:
+            try:
+                symbol : str = sy.get("symbol").replace(".", "-")
+                name : str = sy.get("name")
+                ticker : yf.Ticker = response.tickers[symbol]
+                if not ticker or not ticker.info:
                     continue
-            return results
-    
+                price : Decimal = Context(prec=6).create_decimal(ticker.info["currentPrice"]).quantize(Decimal("0.00"))
+                open_price : Decimal = Context(prec=6).create_decimal(ticker.info["open"]).quantize(Decimal("0.00"))
+                currency_str : str = response.tickers[symbol].info["currency"]
+                match currency_str:
+                    case "USD":
+                        currency = "$"
+                    case "EUR":
+                        currency = "€"
+                    case "GBP":
+                        currency = "£"
+                    case _:
+                        currency = "?"
+
+                change_f : float = (price / open_price * 100) - 100
+                change : Decimal = Context(prec=2).create_decimal(change_f).quantize(Decimal("0.00"))
+                results.append({
+                    "name" : name,
+                    "symbol" : symbol, 
+                    "price": price,
+                    "currency": currency,
+                    "change": change,
+                    "timestamp": now
+                    }
+                )
+            except Exception as ex:
+                self._log.error(ex)
+                continue
+        return results

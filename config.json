@@ -2,7 +2,7 @@
     "debug": 1,
     "creds_path": ".creds",
     "idle_time_minutes": 15,
-    "nfc_device": "tty:USB0",
+    "nfc_device": "tty:NFC",
     "brightness": {
         "minimum": 10,
         "press_to_wake": 30,

@@ -64,6 +64,53 @@ if [ ! -d "/etc/systemd/system/getty@.service.d" ]; then
 	echo "ExecStart=-/sbin/agetty --noclear --autologin ${USER} %I ${TERM}" | sudo tee -a /etc/systemd/system/getty@.service.d/override.conf > /dev/null
 fi
 
+if [ ! -d "/etc/systemd/system/streamdeck.service" ]; then
+	echo "Installing streamdeck service"
+	service_file="/etc/systemd/system/streamdeck.service"
+	user_id=$(id -u ${USER})
+	group_id=$(id -g ${USER})
+	cwd=$(cwd)
+
+	echo "[Unit]" | sudo tee -a ${service_file} > /dev/null
+	echo "Description=Streamdeck Pi Home" | sudo tee -a ${service_file} > /dev/null
+
+	if [ -d /dev/ttyNFC ]; then
+		echo "Installing NFC reader support"
+		echo "After=network.target sound.target dev-ttyNFC.device" | sudo tee -a ${service_file} > /dev/null
+		echo "Wants=dev-ttyNFC.device" | sudo tee -a ${service_file} > /dev/null
+	else
+		echo "No NFC device detected at /dev/ttyNFC, skipping rules"
+	fi
+	echo "" | sudo tee -a ${service_file} > /dev/null
+
+	echo "[Service]" | sudo tee ${service_file} > /dev/null
+	echo "Type=simple" | sudo tee -a ${service_file} > /dev/null
+	echo "User=${USER}" | sudo tee -a ${service_file} > /dev/null
+	echo "WorkingDirectory=$(cwd)" | sudo tee -a ${service_file} > /dev/null
+	echo "" | sudo tee -a ${service_file} > /dev/null
+
+	echo "Environment=DISPLAY=:0" | sudo tee -a ${service_file} > /dev/null
+	echo "Environment=XDG_SESSION_TYPE=tty" | sudo tee -a ${service_file} > /dev/null
+	echo "Environment=HOME=/home${USER}" | sudo tee -a ${service_file} > /dev/null
+	echo "Environment=LANG=en_GB.UTF-8" | sudo tee -a ${service_file} > /dev/null
+	echo "Environment=XDG_SESSION_CLASS=user" | sudo tee -a ${service_file} > /dev/null
+	echo "Environment=TERM=xterm-256color" | sudo tee -a ${service_file} > /dev/null
+	echo "Environment=XDG_SESSION_ID=4" | sudo tee -a ${service_file} > /dev/null
+	echo "Environment=XDG_RUNTIME_DIR=/run/user/${user_id}" | sudo tee -a ${service_file} > /dev/null
+	echo "Environment=PULSE_RUNTIME_PATH=/run/user/${user_id}/pulse" | sudo tee -a ${service_file} > /dev/null
+	echo "Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${user_id}/bus" | sudo tee -a ${service_file} > /dev/null
+	echo "Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games" | sudo tee -a ${service_file} > /dev/null
+
+	echo "" | sudo tee -a ${service_file} > /dev/null
+	echo "ExecStartPre=/bin/sleep 5" | sudo tee -a ${service_file} > /dev/null
+	echo "ExecStart=/home/mat/code/streamdeck-pi-home/run.sh config.json" | sudo tee -a ${service_file} > /dev/null
+
+	sudo chmod 644 /etc/systemd/system/streamdeck.service
+	sudo systemctl enable streamdeck
+
+	echo "StreamDeck service file created at : ${service_file}"
+fi
+
 if [ ! -d venv ]; then
 	echo "Creating virtual environment"
 	python -m venv venv
@@ -73,4 +120,4 @@ if [ ! -d venv ]; then
 	pip install -r requirements.txt
 fi
 
-echo "Setup finished"
+echo "Setup finished\nrun: sudo systemctl restart steamdeck-service"

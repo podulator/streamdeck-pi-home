@@ -203,17 +203,22 @@ class App():
                 except:
                     pass
 
-            self._log.debug("Cleaning plugins")
-            for plugin in self._plugins:
-                plugin.deactivate()
-                plugin.destroy()
-            self._plugins.clear()
-            self._log.debug("Cleaning scrollers")
-            for scroller in self._scrollers:
-                scroller.deactivate()
-            self._scrollers.clear()
+            
+            if self._plugins:
+                self._log.debug("Destroying plugins")
+                for plugin in self._plugins:
+                    plugin.deactivate()
+                    plugin.destroy()
+                self._plugins.clear()
 
-            if None != self._nfc:
+            if self._scrollers:
+                self._log.debug("Destroying scrollers")
+                for scroller in self._scrollers:
+                    scroller.deactivate()
+                self._scrollers.clear()
+
+            if self._nfc:
+                self._log.debug("Destroying NFC reader")
                 self._nfc.destroy()
                 if self._nfc_thread and self._nfc_thread.is_alive():
                     self._nfc_thread.join(timeout=1.0)

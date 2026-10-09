@@ -2,7 +2,7 @@ from __future__ import annotations
 from .shared import BluetoothError, BluetoothCtlInterface
 from .controller import BluetoothController
 from .device import BluetoothDevice
-from threading import Thread
+from threading import Event, Lock, Thread
 from typing import Callable
 
 import logging
@@ -24,7 +24,9 @@ class BluetoothManager(BluetoothCtlInterface):
         self._controller : BluetoothController = None
         self._connected_device : BluetoothDevice = None
         self._scanning : bool = False
+        self._scan_lock : Lock = Lock()
         self._is_daemon : bool = False
+        self._stop : Event = Event()
         self._backoff: int = BluetoothManager.BACKOFF_MIN
         self._debug : bool = False
 
@@ -58,20 +60,26 @@ class BluetoothManager(BluetoothCtlInterface):
             self._callback(message)
 
     def _scan(self, timeout = DEFAULT_TIMEOUT) -> None:
+        # the daemon loop and the scan button can both ask for a scan
+        if not self._scan_lock.acquire(blocking = False):
+            self._log.debug("Scan requested while already scanning")
+            return
         try:
             self._scanning = True
             self._log.info(f"Bluetooth - Starting scanning for {timeout} seconds")
-            self._controller.power_on()
+            if self._controller is not None:
+                self._controller.power_on()
             self._run_command("scan on", timeout)
             self._resolve_devices()
-            self._log.info(f"Bluetooth - Scan completed : Found {len(self._available_devices)} devices")
-            for device in self._available_devices:
+            self._log.info(f"Bluetooth - Scan completed : Found {len(self.devices)} devices")
+            for device in self.devices:
                 self._log.debug(str(device))
-            self._notify(f"Bluetooth\nScan completed\nFound {len(self._available_devices)} devices")
+            self._notify(f"Bluetooth\nScan completed\nFound {len(self.devices)} devices")
         except (BluetoothError, Exception) as e:
             self._log.error(e)
         finally:
             self._scanning = False
+            self._scan_lock.release()
 
     def _disconnect(self, device : BluetoothDevice) -> bool:
         try:
@@ -87,6 +95,7 @@ class BluetoothManager(BluetoothCtlInterface):
     def destroy(self) -> None:
         try:
             self._is_daemon = False
+            self._stop.set()
             self.disconnect_all()
             self._available_devices = None
             self._connected_device = None
@@ -98,7 +107,7 @@ class BluetoothManager(BluetoothCtlInterface):
             if self._scanning: 
                 self._log.debug("Scan requested while already scanning")
                 return False
-            thread : Thread = Thread(target = self._scan, args = ((timeout,)))
+            thread : Thread = Thread(target = self._scan, args = ((timeout,)), daemon = True)
             thread.start()
             return True
         except (BluetoothError, Exception) as e:
@@ -120,7 +129,7 @@ class BluetoothManager(BluetoothCtlInterface):
                     continue
 
                 mac_address : str = parts.pop(0)
-                device = BluetoothDevice(mac_address)
+                device = BluetoothDevice(mac_address, " ".join(parts))
                 if device.refresh():
                     available_devices.append(device)
 
@@ -162,9 +171,9 @@ class BluetoothManager(BluetoothCtlInterface):
         try:
             result : list[str] = self._run_command(f"remove {device.mac_address}")
             self._log.debug(result)
-            for d in self._available_devices:
-                if d == device:
-                    self._available_devices.remove(d)
+            self._available_devices = [d for d in self.devices if d != device]
+            if device == self._connected_device:
+                self._connected_device = None
             self._notify(f"Bluetooth\nDevice removed\n{device.name}")
             return True
         except (BluetoothError, Exception) as e:
@@ -172,45 +181,53 @@ class BluetoothManager(BluetoothCtlInterface):
             return False
 
     def daemon_connect(self, allowed_devices : list[str]) -> bool:
+        # Disconnected: scan and try the allowed devices in order, backing off 30 -> 60 -> 120s between rounds.
+        # Connected: re-check the link every BACKOFF_MAX seconds, and drop back to the fast retry if it is gone.
         try:
-            threshold : int = 10
+            scan_time : int = 8
             self._is_daemon = True
+            self._stop.clear()
 
             device_list : str = "', '".join(allowed_devices)
             self._log.info(f"Bluetooth allowed devices : '{device_list}'")
 
-            while self._is_daemon:
+            while self._is_daemon and not self._stop.is_set():
                 if self._connected_device is None:
-                    self._scan(threshold - 2)
+                    self._scan(scan_time)
                     if self._connected_device is None:
-                        self._log.debug(f"Bluetooth available devices : {', '.join([d.name for d in self._available_devices])}")
-                        for a in allowed_devices:
-                            for d in self._available_devices:
-                                if d.name == a:
-                                    if self.connect(d):
-                                        self._backoff = BluetoothManager.BACKOFF_MAX
-                                        break
-                                    self._log.info(f"Connection to device {d.name} failed")
-                                    time.sleep(self._backoff)
-                            if self._connected_device is not None:
-                                # successful connection
+                        self._log.debug(f"Bluetooth available devices : {', '.join([d.name for d in self.devices])}")
+                        for name in allowed_devices:
+                            if self._stop.is_set():
                                 break
+                            device : BluetoothDevice = next((d for d in self.devices if d.name == name), None)
+                            if device is None:
+                                continue
+                            if self.connect(device):
+                                break
+                            self._log.info(f"Connection to device {device.name} failed")
+
+                    if self._connected_device is None:
+                        wait : int = self._backoff
+                        self._backoff = min(self._backoff * 2, BluetoothManager.BACKOFF_MAX)
+                    else:
+                        self._backoff = BluetoothManager.BACKOFF_MIN
+                        wait = BluetoothManager.BACKOFF_MAX
                 else:
-                    # check if we're still really connected
                     self._log.debug(f"Refreshing device status :: {self._connected_device.mac_address}")
                     self._connected_device.refresh()
                     if not self._connected_device.connected:
-                        self._log.debug("Device disconnected, forcing a reset")
-                        self._disconnect(self._connected_device)
+                        self._log.info(f"Bluetooth lost connection to {self._connected_device.name}, reconnecting")
+                        self._connected_device = None
+                        self._backoff = BluetoothManager.BACKOFF_MIN
+                        wait = 0
                     else:
-                        self._backoff = BluetoothManager.BACKOFF_MAX
+                        wait = BluetoothManager.BACKOFF_MAX
 
-                if self.connected_device and not self.connected_device.connected:
-                    self._backoff = min(self._backoff + 1, BluetoothManager.BACKOFF_MAX)
-                self._log.debug(f"Bluetooth daemon loop backoff sleep time is {self._backoff} seconds")
-                time.sleep(self._backoff)
+                self._log.debug(f"Bluetooth daemon loop sleeping for {wait} seconds")
+                self._stop.wait(wait)
 
             self._log.debug("Daemon connection stopped")
+            return True
 
         except (BluetoothError, Exception) as e:
             self._log.error(e)
@@ -218,11 +235,16 @@ class BluetoothManager(BluetoothCtlInterface):
 
     def connect(self, device : BluetoothDevice) -> bool:
         try:
+            current : BluetoothDevice = self._connected_device
+            if current is not None and current != device:
+                self._log.debug(f"Bluetooth disconnecting {current.name} before switching")
+                self._disconnect(current)
             self._log.debug(f"Bluetooth connecting to {device.name} :: {device.mac_address}")
             if device.connect():
                 self._connected_device = device
                 self._notify(f"Bluetooth\nConnected to\n{device.name}")
                 return True
+            self._notify(f"Bluetooth\nFailed to connect\n{device.name}")
             return False
         except (BluetoothError, Exception) as e:
             self._log.error(e)
@@ -231,7 +253,7 @@ class BluetoothManager(BluetoothCtlInterface):
 
     def disconnect_all(self) -> bool:
         try:
-            for d in self._available_devices:
+            for d in self.devices:
                 if d.pairing:
                     d.cancel_pairing()
                 d.disconnect()

@@ -491,7 +491,7 @@ class App():
                 key = key - 1 + start
 
                 # key = key - 1
-                if key <= len(self._plugins):
+                if 0 <= key < len(self._plugins):
                     self._log.debug(f"Key {key} is in range for an action : {len(self._plugins)} plugins loaded")
                     plugin = self._plugins[key]
                     if plugin:

@@ -54,6 +54,10 @@ Scans your environment, and builds a list of connectable devices.
 
 Auto connects to the saved connection on startup, so you can jump straight into playing music via Jellyfin. 
 
+Config: `auto-connect`, `preferred-device` (tried first) and `allowed-devices`. Entries can be a device name or a MAC address
+(`AA:BB:CC:DD:EE:FF`, case and `:`/`-` don't matter). A MAC address is the more reliable choice, as BlueZ can briefly report
+no name for a device, for example straight after pairing.
+
 **Supported**
 
 - Button 1 - Home

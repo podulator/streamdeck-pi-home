@@ -196,10 +196,10 @@ class BluetoothManager(BluetoothCtlInterface):
                     self._scan(scan_time)
                     if self._connected_device is None:
                         self._log.debug(f"Bluetooth available devices : {', '.join([d.name for d in self.devices])}")
-                        for name in allowed_devices:
+                        for entry in allowed_devices:
                             if self._stop.is_set():
                                 break
-                            device : BluetoothDevice = next((d for d in self.devices if d.name == name), None)
+                            device : BluetoothDevice = next((d for d in self.devices if d.matches(entry)), None)
                             if device is None:
                                 continue
                             if self.connect(device):

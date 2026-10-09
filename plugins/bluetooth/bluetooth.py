@@ -48,7 +48,8 @@ class BluetoothPlugin(IPlugin):
 
             if auto_connect and allowed_devices:
                 if preferred_device:
-                    allowed_devices = [preferred_device] + [d for d in allowed_devices if d != preferred_device]
+                    preferred_key : str = BluetoothDevice.normalise_mac(preferred_device)
+                    allowed_devices = [preferred_device] + [d for d in allowed_devices if BluetoothDevice.normalise_mac(d) != preferred_key]
                 # we might have enough info to auto start
                 self._bt.initialize()
                 if self._bt.controller is not None and self._bt.controller.powered:

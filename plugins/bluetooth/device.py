@@ -64,6 +64,20 @@ class BluetoothDevice(BluetoothCtlInterface):
             return self.mac_address == other.mac_address
         return NotImplemented
 
+    @staticmethod
+    def normalise_mac(value : str) -> str:
+        return (value or "").strip().upper().replace("-", ":")
+
+    def matches(self, entry : str) -> bool:
+        """True if a config entry names this device, by MAC address (aa:bb.., AA-BB..) or by name / alias.
+        A MAC entry keeps matching while BlueZ briefly has no name for the device, e.g. just after pairing."""
+        if not entry:
+            return False
+        if BluetoothDevice.normalise_mac(entry) == BluetoothDevice.normalise_mac(self._mac_address):
+            return True
+        entry = entry.strip()
+        return entry in (self._name, self._fallback_name)
+
     def __str__(self) -> str:
         return json.dumps(self.toJSON())
 

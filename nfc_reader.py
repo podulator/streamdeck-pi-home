@@ -59,8 +59,15 @@ class NfcDevice():
     def _open(self) -> bool:
         if self._frontend is not None:
             return True
+        # nfcpy logs "searching for reader" / "no reader available" itself on every attempt; once we have
+        # reported the reader missing, quieten it so retries every few seconds don't flood the log
+        clf_log : logging.Logger = logging.getLogger("nfc.clf")
+        previous_level : int = clf_log.level
+        if self._missing_logged:
+            clf_log.setLevel(logging.CRITICAL)
         try:
-            self._log.debug(f"Attempting to connect to nfc reader :: {self._device_name}")
+            if not self._missing_logged:
+                self._log.debug(f"Attempting to connect to nfc reader :: {self._device_name}")
             self._frontend = nfc.ContactlessFrontend(self._device_name)
             self._log.info(f"Found NFC device at {self._device_name}")
             self._missing_logged = False
@@ -71,9 +78,9 @@ class NfcDevice():
             if not self._missing_logged:
                 self._log.error(f"No NFC reader available on {self._device_name}, will keep retrying :: {ex}")
                 self._missing_logged = True
-            else:
-                self._log.debug(f"NFC reader still unavailable :: {ex}")
             return False
+        finally:
+            clf_log.setLevel(previous_level)
 
     def _listen(self) -> None:
         try:

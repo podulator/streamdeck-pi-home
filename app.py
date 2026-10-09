@@ -336,7 +336,7 @@ class App():
                         else:
                             self._idle_counter = 0
                     
-                    if not self._nfc.is_listening:
+                    if self._nfc is not None and not self._nfc.is_listening:
                         self._log.debug("Restarting NFC reader")
                         self._nfc.read()
 

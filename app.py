@@ -22,7 +22,6 @@ class App():
         self._home_image: Optional[bytes] = None
         self._nfc : NfcDevice = None
         self._main_thread : threading.Thread = None
-        self._nfc_thread : threading.Thread = None
         self._render_lock: threading.Lock = threading.Lock()
         self._destroyed : bool = False
         self._active_scroller: int = 0
@@ -178,9 +177,9 @@ class App():
 
         nfc_device: str = self._config.get("nfc_device", None)
         if not nfc_device is None:
-            self._nfc = NfcDevice(device = self.config.get("nfc_device"), read_callback = self._nfc_read_callback)
-            self._nfc_thread = threading.Thread(target=self._nfc.read, daemon=True)
-            self._nfc_thread.start()
+            self._nfc = NfcDevice(device = nfc_device, read_callback = self._nfc_read_callback)
+            # NfcDevice runs and restarts its own listener thread
+            self._nfc.start()
 
         self._default_layout()
 
@@ -236,8 +235,6 @@ class App():
                 if self._nfc:
                     self._log.debug("Destroying NFC reader")
                     self._nfc.destroy()
-                    if self._nfc_thread and self._nfc_thread.is_alive():
-                        self._nfc_thread.join(timeout=1.0)
 
                 self._log.debug("Destroy completed")
                 success = True
@@ -346,10 +343,6 @@ class App():
                                 self._deactivate_plugin()
                         else:
                             self._idle_counter = 0
-                    
-                    if self._nfc is not None and not self._nfc.is_listening:
-                        self._log.debug("Restarting NFC reader")
-                        self._nfc.read()
 
             except Exception as ex:
                 self._log.critical(ex)

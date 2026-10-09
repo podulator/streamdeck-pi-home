@@ -1,5 +1,20 @@
 #!/usr/bin/bash
 
+# usage: ./setup.sh [config-file]
+# each room's deck has its own config (e.g. office-config.json). With no argument, an existing
+# service keeps the config it already runs; a fresh install falls back to config.json.
+service_file="/etc/systemd/system/streamdeck.service"
+config_file="${1}"
+if [ -z "${config_file}" ] && [ -f "${service_file}" ]; then
+	config_file=$(sed -n 's#^ExecStart=.*/run\.sh \(.*\)$#\1#p' "${service_file}")
+fi
+config_file="${config_file:-config.json}"
+if [ ! -f "${config_file}" ]; then
+	echo "Config file not found : ${config_file}"
+	exit 1
+fi
+echo "Using config : ${config_file}"
+
 python=$(which python3)
 pyenv=$(which pyenv)
 pyver=$( ${python} --version )
@@ -64,7 +79,6 @@ if [ ! -d "/etc/systemd/system/getty@.service.d" ]; then
 fi
 
 # the service file is regenerated on every run, so fixes here reach machines that already have one
-service_file="/etc/systemd/system/streamdeck.service"
 user_id=$(id -u)
 cwd=$(pwd)
 
@@ -103,7 +117,7 @@ Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${user_id}/bus
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games
 
 ExecStartPre=/bin/sleep 5
-ExecStart=${cwd}/run.sh config.json
+ExecStart=${cwd}/run.sh ${config_file}
 
 [Install]
 WantedBy=multi-user.target

@@ -11,18 +11,17 @@ else
 	echo "We need python 3.11"
 	echo "current version is : ${pyver}"
 	# if we have pyenv installed, we can try to install 3.11
-	if [ -z ${pyenv} ]; then
+	if [ -z "${pyenv}" ]; then
 		echo "You need to install pyenv"
 		# https://www.dedicatedcore.com/blog/install-pyenv-ubuntu/
 		exit 2
 	fi
-	success=$( ${pyenv} install -s 3.11 )
-	if [[ ${success} -eq 0 ]]; then
+	if ${pyenv} install -s 3.11; then
 		echo "Installed python 3.11"
 		${pyenv} local 3.11
 		# update our ref to the pyenv version
 		python=$(which python3)
-		echo python --version
+		${python} --version
 	else
 		echo "Failed to install python 3.11"
 		exit 3
@@ -64,60 +63,75 @@ if [ ! -d "/etc/systemd/system/getty@.service.d" ]; then
 	echo "ExecStart=-/sbin/agetty --noclear --autologin ${USER} %I ${TERM}" | sudo tee -a /etc/systemd/system/getty@.service.d/override.conf > /dev/null
 fi
 
-if [ ! -d "/etc/systemd/system/streamdeck.service" ]; then
-	echo "Installing streamdeck service"
-	service_file="/etc/systemd/system/streamdeck.service"
-	user_id=$(id -u ${USER})
-	group_id=$(id -g ${USER})
-	cwd=$(cwd)
+# the service file is regenerated on every run, so fixes here reach machines that already have one
+service_file="/etc/systemd/system/streamdeck.service"
+user_id=$(id -u)
+cwd=$(pwd)
 
-	echo "[Unit]" | sudo tee -a ${service_file} > /dev/null
-	echo "Description=Streamdeck Pi Home" | sudo tee -a ${service_file} > /dev/null
-
-	if [ -d /dev/ttyNFC ]; then
-		echo "Installing NFC reader support"
-		echo "After=network.target sound.target dev-ttyNFC.device" | sudo tee -a ${service_file} > /dev/null
-		echo "Wants=dev-ttyNFC.device" | sudo tee -a ${service_file} > /dev/null
-	else
-		echo "No NFC device detected at /dev/ttyNFC, skipping rules"
-	fi
-	echo "" | sudo tee -a ${service_file} > /dev/null
-
-	echo "[Service]" | sudo tee ${service_file} > /dev/null
-	echo "Type=simple" | sudo tee -a ${service_file} > /dev/null
-	echo "User=${USER}" | sudo tee -a ${service_file} > /dev/null
-	echo "WorkingDirectory=$(cwd)" | sudo tee -a ${service_file} > /dev/null
-	echo "" | sudo tee -a ${service_file} > /dev/null
-
-	echo "Environment=DISPLAY=:0" | sudo tee -a ${service_file} > /dev/null
-	echo "Environment=XDG_SESSION_TYPE=tty" | sudo tee -a ${service_file} > /dev/null
-	echo "Environment=HOME=/home${USER}" | sudo tee -a ${service_file} > /dev/null
-	echo "Environment=LANG=en_GB.UTF-8" | sudo tee -a ${service_file} > /dev/null
-	echo "Environment=XDG_SESSION_CLASS=user" | sudo tee -a ${service_file} > /dev/null
-	echo "Environment=TERM=xterm-256color" | sudo tee -a ${service_file} > /dev/null
-	echo "Environment=XDG_SESSION_ID=4" | sudo tee -a ${service_file} > /dev/null
-	echo "Environment=XDG_RUNTIME_DIR=/run/user/${user_id}" | sudo tee -a ${service_file} > /dev/null
-	echo "Environment=PULSE_RUNTIME_PATH=/run/user/${user_id}/pulse" | sudo tee -a ${service_file} > /dev/null
-	echo "Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${user_id}/bus" | sudo tee -a ${service_file} > /dev/null
-	echo "Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games" | sudo tee -a ${service_file} > /dev/null
-
-	echo "" | sudo tee -a ${service_file} > /dev/null
-	echo "ExecStartPre=/bin/sleep 5" | sudo tee -a ${service_file} > /dev/null
-	echo "ExecStart=/home/mat/code/streamdeck-pi-home/run.sh config.json" | sudo tee -a ${service_file} > /dev/null
-
-	sudo chmod 644 /etc/systemd/system/streamdeck.service
-	sudo systemctl enable streamdeck
-
-	echo "StreamDeck service file created at : ${service_file}"
+after="network.target sound.target bluetooth.target"
+wants="bluetooth.target"
+if [ -e /dev/ttyNFC ]; then
+	echo "NFC reader found at /dev/ttyNFC, adding it to the service dependencies"
+	after="${after} dev-ttyNFC.device"
+	wants="${wants} dev-ttyNFC.device"
+else
+	echo "No NFC device detected at /dev/ttyNFC, skipping rules"
 fi
+
+service_tmp=$(mktemp)
+cat > "${service_tmp}" <<SERVICE
+[Unit]
+Description=Streamdeck Pi Home
+After=${after}
+Wants=${wants}
+
+[Service]
+Type=simple
+User=${USER}
+WorkingDirectory=${cwd}
+
+Environment=DISPLAY=:0
+Environment=XDG_SESSION_TYPE=tty
+Environment=HOME=${HOME}
+Environment=LANG=en_GB.UTF-8
+Environment=XDG_SESSION_CLASS=user
+Environment=TERM=xterm-256color
+Environment=XDG_SESSION_ID=4
+Environment=XDG_RUNTIME_DIR=/run/user/${user_id}
+Environment=PULSE_RUNTIME_PATH=/run/user/${user_id}/pulse
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${user_id}/bus
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games
+
+ExecStartPre=/bin/sleep 5
+ExecStart=${cwd}/run.sh config.json
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+if [ -f "${service_file}" ] && cmp -s "${service_tmp}" "${service_file}"; then
+	echo "StreamDeck service file is up to date"
+else
+	if [ -f "${service_file}" ]; then
+		sudo cp "${service_file}" "${service_file}.bak"
+		echo "Updating StreamDeck service file (previous version saved as ${service_file}.bak)"
+	else
+		echo "Installing streamdeck service"
+	fi
+	sudo install -m 644 "${service_tmp}" "${service_file}"
+	sudo systemctl daemon-reload
+	sudo systemctl enable streamdeck
+	echo "StreamDeck service file written to : ${service_file}"
+fi
+rm -f "${service_tmp}"
 
 if [ ! -d venv ]; then
 	echo "Creating virtual environment"
-	python -m venv venv
+	${python} -m venv venv
 	source ./venv/bin/activate
 	echo "Installing dependencies"
 	pip install -U wheel pip 2>/dev/null
 	pip install -r requirements.txt
 fi
 
-echo "Setup finished\nrun: sudo systemctl restart steamdeck-service"
+printf "Setup finished\nrun: sudo systemctl restart streamdeck\n"

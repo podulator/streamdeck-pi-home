@@ -413,6 +413,8 @@ Features and new plugins / scrollers I plan to add. I'm open to requests.
 ## Installation
 
 Run `setup.sh` with a working python 3 environment. It creates a venv for you and installs to that. 
+
+Python package versions are pinned in `constraints.txt` (`pip install -r requirements.txt -c constraints.txt`), so every deck runs the same set; `update.sh` pulls and then installs from it. To upgrade a package, change its pin, test on one deck, and commit.
 Python 3.11 and bluetoothctl 5.66 or higher are required. 
 Ubuntu Lunar works on Orange Pi Zero 2W
 Raspbian based on Bookworm (12) on Raspberry Pi Zero 2W are known to work.

@@ -1,0 +1,74 @@
+# Exact versions for every Python package, transitive ones included.
+# Taken from a deck running this code with Bluetooth, NFC and the Stream Deck working
+# (Python 3.11.2, Debian bookworm, Orange Pi Zero 2W).
+#
+# requirements.txt lists what the code needs; this file decides which versions get installed:
+#   pip install -r requirements.txt -c constraints.txt
+# setup.sh and update.sh both do that, so every deck runs the same set.
+#
+# To move a package: bump it here, test on one deck, then commit.
+# To regenerate from a deck that works:  venv/bin/pip freeze > constraints.txt  (then restore this header)
+wheel==0.45.1
+adb-shell==0.4.4
+appdirs==1.4.4
+attrs==23.2.0
+beautifulsoup4==4.12.3
+cattrs==23.2.3
+certifi==2024.2.2
+cffi==1.16.0
+charset-normalizer==3.3.2
+colorama==0.4.6
+cryptography==42.0.5
+curl_cffi==0.11.1
+ed25519==1.5
+envsubst==0.1.5
+frozendict==2.4.0
+hkdf==0.0.3
+homekit==0.19.0
+html5lib==1.1
+idna==3.6
+ifaddr==0.2.0
+jellyfin-apiclient-python==1.11.0
+libusb1==3.3.1
+lxml==5.1.0
+multitasking==0.0.11
+ndeflib==0.3.3
+nfcpy==1.0.4
+numpy==1.26.4
+pandas==2.2.1
+peewee==3.17.1
+pexpect==4.9.0
+phue==1.1
+pillow==11.2.1
+platformdirs==4.2.0
+protobuf==6.31.1
+ptyprocess==0.7.0
+py-sonic==1.0.3
+pyasn1==0.6.0
+pycparser==2.21
+pyDes==2.0.1
+pyserial==3.5
+python-dateutil==2.9.0.post0
+python-dotenv==1.1.0
+python-tado==0.19.2
+python-vlc==3.0.21203
+pytz==2024.1
+pyvesync==2.1.18
+requests==2.32.3
+requests-cache==1.2.1
+retry-requests==2.0.0
+rgbxy==0.5
+rsa==4.9
+six==1.16.0
+soupsieve==2.5
+streamdeck==0.9.6
+tinytuya==1.17.6
+tlv8==0.10.0
+tzdata==2024.1
+url-normalize==1.4.3
+urllib3==2.2.1
+webencodings==0.5.1
+websocket-client==1.7.0
+websockets==15.0.1
+yfinance==0.2.61
+zeroconf==0.131.0

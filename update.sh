@@ -11,7 +11,13 @@ elif [ ${added} -ne 0 ]; then
 	git status -s | head -n 2
 	exit 1
 else
-	# silent upgrade of pip
-	source ./venv/bin/activate && pip install -Ur ./requirements.txt 1>/dev/null 2>&1
+	# pull first, so a change to requirements.txt / constraints.txt is installed in the same run
 	git pull | tail -n 1
+	# exact versions from constraints.txt; packages only move when that file is changed in git
+	source ./venv/bin/activate
+	if ! pip install -q -r ./requirements.txt -c ./constraints.txt > /tmp/streamdeck-pip.log 2>&1; then
+		echo "pip install failed, see /tmp/streamdeck-pip.log"
+		tail -n 5 /tmp/streamdeck-pip.log
+		exit 1
+	fi
 fi

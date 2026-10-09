@@ -15,10 +15,11 @@ A Python application that drives an Elgato Stream Deck + as a physical smart-hom
 ├── app.py                   # Core App class — lifecycle, callbacks, main loop, layout management
 ├── nfc_reader.py            # NFC tag reader (PN532) via nfcpy — blocking listen in a daemon thread
 ├── config.json              # Primary configuration — plugins, scrollers, font, brightness, NFC device
-├── requirements.txt         # Python dependencies (pinned lower bounds)
+├── requirements.txt         # Python dependencies the code needs (lower bounds)
+├── constraints.txt          # Exact versions of every package, transitive included; installs use -c
 ├── setup.sh                 # First-run setup — udev rules, venv creation, pip install
 ├── run.sh                   # Production launcher — activates venv, runs with auto-restart on SIGABRT (134)
-├── update.sh                # Git pull with local modification guard + silent pip upgrade
+├── update.sh                # Git pull with local modification guard, then pip install from constraints.txt
 ├── develop.sh               # Activates venv + launches VS Code
 ├── font/                    # Custom fonts for touchscreen rendering (Terminator OTF/TTF, Birdfont source)
 ├── images/                  # Shared images (home button, next page, etc.)
@@ -223,7 +224,7 @@ Stored in `.creds/` (gitignored). Plugins that need persistent credentials (Hue 
 | `python streamdeck_launcher.py [config.json]` | Run directly (optional config path argument) |
 | `./run.sh` | Production launcher — venv activation + auto-restart on SIGABRT |
 | `./setup.sh` | First-time setup — udev rules, venv, pip install |
-| `./update.sh` | Safe git pull + pip upgrade (aborts on local modifications) |
+| `./update.sh` | Safe git pull, then pip install pinned by constraints.txt (aborts on local modifications) |
 | `./develop.sh` | Dev setup — activate venv + open VS Code |
 
 ### `run.sh` Restart Behaviour

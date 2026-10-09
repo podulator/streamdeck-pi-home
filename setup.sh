@@ -145,7 +145,7 @@ if [ ! -d venv ]; then
 	source ./venv/bin/activate
 	echo "Installing dependencies"
 	pip install -U wheel pip 2>/dev/null
-	pip install -r requirements.txt
+	pip install -r requirements.txt -c constraints.txt
 fi
 
 printf "Setup finished\nrun: sudo systemctl restart streamdeck\n"

@@ -6,6 +6,9 @@ test.py
 *.sqlite
 .env
 .config.json
+# per-room deck configs live only on each Pi; config.json is the tracked default
+*-config.json
+*.json.bak*
 .vscode/**
 .python-version
 venv/**

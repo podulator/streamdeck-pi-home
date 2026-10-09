@@ -1,7 +1,7 @@
 #!/usr/bin/bash
 
 # usage: ./setup.sh [config-file]
-# each room's deck has its own config (e.g. office-config.json). With no argument, an existing
+# each room's deck has its own config (e.g. room-config.json). With no argument, an existing
 # service keeps the config it already runs; a fresh install falls back to config.json.
 service_file="/etc/systemd/system/streamdeck.service"
 config_file="${1}"

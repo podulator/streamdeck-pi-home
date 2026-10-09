@@ -188,47 +188,50 @@ class App():
             self._render_lock.release()
 
     def destroy(self) -> bool:
-        self._destroyed = True
-        success = False
-        try:
-            if self._main_thread and self._main_thread.is_alive():
-                self._main_thread.join(timeout=1.0)
-
-            # Unregister callbacks FIRST
-            if self._deck_available():
-                self._log.debug("Unregistering deck callbacks")
-                try:
-                    self._deck.set_key_callback(None)
-                    self._deck.set_dial_callback(None)
-                except:
-                    pass
-
-            
-            if self._plugins:
-                self._log.debug("Destroying plugins")
-                for plugin in self._plugins:
-                    plugin.deactivate()
-                    plugin.destroy()
-                self._plugins.clear()
-
-            if self._scrollers:
-                self._log.debug("Destroying scrollers")
-                for scroller in self._scrollers:
-                    scroller.deactivate()
-                self._scrollers.clear()
-
-            if self._nfc:
-                self._log.debug("Destroying NFC reader")
-                self._nfc.destroy()
-                if self._nfc_thread and self._nfc_thread.is_alive():
-                    self._nfc_thread.join(timeout=1.0)
-
-            self._log.debug("Destroy completed")
+        if self._destroyed:
             success = True
-        except Exception as ex:
-            self._log.error(f"Destroy error : {ex}")
-        finally:
-            return success
+        else:
+            self._destroyed = True
+            success = False
+            try:
+                if self._main_thread and self._main_thread.is_alive():
+                    self._main_thread.join(timeout=1.0)
+
+                # Unregister callbacks FIRST
+                if self._deck_available():
+                    self._log.debug("Unregistering deck callbacks")
+                    try:
+                        self._deck.set_key_callback(None)
+                        self._deck.set_dial_callback(None)
+                    except:
+                        pass
+
+                
+                if self._plugins:
+                    self._log.debug("Destroying plugins")
+                    for plugin in self._plugins:
+                        plugin.deactivate()
+                        plugin.destroy()
+                    self._plugins.clear()
+
+                if self._scrollers:
+                    self._log.debug("Destroying scrollers")
+                    for scroller in self._scrollers:
+                        scroller.deactivate()
+                    self._scrollers.clear()
+
+                if self._nfc:
+                    self._log.debug("Destroying NFC reader")
+                    self._nfc.destroy()
+                    if self._nfc_thread and self._nfc_thread.is_alive():
+                        self._nfc_thread.join(timeout=1.0)
+
+                self._log.debug("Destroy completed")
+                success = True
+            except Exception as ex:
+                self._log.error(f"Destroy error : {ex}")
+            
+        return success
 
     def _default_layout(self):
         self._log.debug("Creating default layout")

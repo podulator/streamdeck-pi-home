@@ -3,13 +3,24 @@ from .shared import BluetoothError, BluetoothCtlInterface
 import json
 import logging
 import os
+import time
 
 class BluetoothDevice(BluetoothCtlInterface):
 
-    def __init__(self, mac_address : str = None) -> None:
+    # speakers etc. have no input, so let BlueZ do "Just Works" pairing without prompting
+    AGENT : str = "NoInputNoOutput"
+    # BlueZ drops unpaired devices from its cache ~30s after discovery stops, so rescan right before pairing
+    PRE_PAIR_SCAN : int = 5
+    PAIR_TIMEOUT : int = 30
+    CONNECT_TIMEOUT : int = 20
+    CONNECT_ATTEMPTS : int = 2
+
+    def __init__(self, mac_address : str = None, name : str = "") -> None:
         super().__init__()
         # default the name to empty, and use the public getter to return the mac address if it is empty
         self._name : str = ""
+        # name from the "devices" listing, used until "info" reports a real Name
+        self._fallback_name : str = name or ""
         self._mac_address : str = mac_address
         self._connected : bool = False
         self._paired : bool = False
@@ -21,9 +32,7 @@ class BluetoothDevice(BluetoothCtlInterface):
 
     @property
     def name(self) -> str:
-        if self._name is None:
-            return self._mac_address
-        return self._name
+        return self._name or self._fallback_name or self._mac_address
 
     @property
     def mac_address(self) -> str:
@@ -83,7 +92,10 @@ class BluetoothDevice(BluetoothCtlInterface):
                     continue
                 elif line.startswith("Name:"):
                     if not self._name:
-                        self._name = line.split(":")[1].strip()
+                        self._name = line.split(":", 1)[1].strip()
+                elif line.startswith("Alias:"):
+                    if not self._fallback_name:
+                        self._fallback_name = line.split(":", 1)[1].strip()
                 elif line.startswith("Paired:"):
                     paired = line.split(":")[1].strip().lower() == "yes"
                 elif line.startswith("Trusted:"):
@@ -118,22 +130,34 @@ class BluetoothDevice(BluetoothCtlInterface):
             self._log.error(e)
             return False
 
-    def connect(self,) -> bool:
+    def connect(self) -> bool:
         try:
             if self._connected:
                 self._log.debug("Already connected, returning")
                 return True
 
             if not self.paired:
-                self.pair()
+                if not self.pair():
+                    self._log.error(f"Pairing with {self.name} failed, not connecting")
+                    return False
             if not self.trusted:
                 self.trust()
 
-            self._log.debug(f"Connecting to {self.name}")
-            results : list[str] = self._run_command(f"connect {self.mac_address}")
-            self._connected = self._parse_results(["connection", "successful"], results)
+            for attempt in range(1, BluetoothDevice.CONNECT_ATTEMPTS + 1):
+                try:
+                    self._log.debug(f"Connecting to {self.name} (attempt {attempt})")
+                    results : list[str] = self._run_command(f"connect {self.mac_address}", run_timeout = BluetoothDevice.CONNECT_TIMEOUT)
+                    self._connected = self._parse_results(["connection", "successful"], results)
+                    if self._connected:
+                        break
+                    self._log.error(results)
+                except BluetoothError as e:
+                    self._log.error(e)
+                # freshly paired devices often refuse the first connect while the profiles settle
+                if attempt < BluetoothDevice.CONNECT_ATTEMPTS:
+                    time.sleep(2)
+
             if not self.connected:
-                self._log.error(results)
                 return False
             self._log.debug(f"Bluetooth connected to : {self.name}")
             return True
@@ -153,14 +177,22 @@ class BluetoothDevice(BluetoothCtlInterface):
     def pair(self) -> bool:
         try:
             self._pairing = True
-            result : list[str] = self._run_command(f"pair {self.mac_address}")
+            self._log.info(f"Pairing with {self.name} :: {self.mac_address}")
+            try:
+                self._run_command("scan on", BluetoothDevice.PRE_PAIR_SCAN)
+            except BluetoothError as e:
+                self._log.warning(f"Pre-pair scan failed, trying to pair anyway : {e}")
+            result : list[str] = self._run_command(f"pair {self.mac_address}", agent = BluetoothDevice.AGENT, run_timeout = BluetoothDevice.PAIR_TIMEOUT)
             self._log.debug(result)
-            self._pairing = False
-            return True
+            self.refresh()
+            if not self.paired:
+                self._log.error(f"Pair command returned but {self.name} is not paired : {result}")
+            return self.paired
         except (BluetoothError, Exception) as e:
             self._log.error(e)
-            self._pairing = False
             return False
+        finally:
+            self._pairing = False
 
     def cancel_pairing(self) -> bool:
         try:

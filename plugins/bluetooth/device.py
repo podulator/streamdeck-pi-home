@@ -14,6 +14,11 @@ class BluetoothDevice(BluetoothCtlInterface):
     PAIR_TIMEOUT : int = 30
     CONNECT_TIMEOUT : int = 20
     CONNECT_ATTEMPTS : int = 2
+    # re-pair a paired device that refuses to connect, at most once per cooldown so we can't loop forgetting it
+    STALE_PAIRING_HINTS : tuple[str, ...] = ("br-connection-unknown", "key-missing", "authenticationfailed", "authentication failed", "permission denied")
+    REPAIR_COOLDOWN : int = 600
+    # keyed by MAC, as the manager builds fresh device objects on every scan
+    _last_repairs : dict[str, float] = {}
 
     def __init__(self, mac_address : str = None, name : str = "") -> None:
         super().__init__()
@@ -144,12 +149,58 @@ class BluetoothDevice(BluetoothCtlInterface):
             self._log.error(e)
             return False
 
+    def _connect_attempts(self) -> tuple[bool, list[str]]:
+        errors : list[str] = []
+        for attempt in range(1, BluetoothDevice.CONNECT_ATTEMPTS + 1):
+            try:
+                self._log.debug(f"Connecting to {self.name} (attempt {attempt})")
+                results : list[str] = self._run_command(f"connect {self.mac_address}", run_timeout = BluetoothDevice.CONNECT_TIMEOUT)
+                self._connected = self._parse_results(["connection", "successful"], results)
+                if self._connected:
+                    return True, errors
+                self._log.error(results)
+                errors.append("\n".join(results))
+            except BluetoothError as e:
+                self._log.error(e)
+                errors.append(str(e))
+            # freshly paired devices often refuse the first connect while the profiles settle
+            if attempt < BluetoothDevice.CONNECT_ATTEMPTS:
+                time.sleep(2)
+        return False, errors
+
+    def _looks_like_stale_pairing(self, errors : list[str]) -> bool:
+        # the remote dropped our stored link key (reset, or paired to something else since): the ACL link comes
+        # up, then encryption is refused. bluetoothctl only shows br-connection-unknown; bluetoothd logs EACCES.
+        # page-timeout means the device simply didn't answer (off / out of range), which re-pairing can't fix.
+        if not errors:
+            return False
+        text : str = " ".join(errors).lower()
+        if "page-timeout" in text:
+            return False
+        return any(hint in text for hint in BluetoothDevice.STALE_PAIRING_HINTS)
+
+    def _repair(self) -> bool:
+        BluetoothDevice._last_repairs[self._mac_address] = time.monotonic()
+        self._log.warning(f"{self.name} refused a paired connection, its pairing looks stale : forgetting and re-pairing")
+        try:
+            self._run_command(f"remove {self.mac_address}")
+        except BluetoothError as e:
+            self._log.error(e)
+        self._paired = False
+        self._trusted = False
+        if not self.pair():
+            self._log.error(f"Re-pairing with {self.name} failed; it needs to be discoverable (not connected to another source)")
+            return False
+        self.trust()
+        return True
+
     def connect(self) -> bool:
         try:
             if self._connected:
                 self._log.debug("Already connected, returning")
                 return True
 
+            was_paired : bool = self.paired
             if not self.paired:
                 if not self.pair():
                     self._log.error(f"Pairing with {self.name} failed, not connecting")
@@ -157,21 +208,17 @@ class BluetoothDevice(BluetoothCtlInterface):
             if not self.trusted:
                 self.trust()
 
-            for attempt in range(1, BluetoothDevice.CONNECT_ATTEMPTS + 1):
-                try:
-                    self._log.debug(f"Connecting to {self.name} (attempt {attempt})")
-                    results : list[str] = self._run_command(f"connect {self.mac_address}", run_timeout = BluetoothDevice.CONNECT_TIMEOUT)
-                    self._connected = self._parse_results(["connection", "successful"], results)
-                    if self._connected:
-                        break
-                    self._log.error(results)
-                except BluetoothError as e:
-                    self._log.error(e)
-                # freshly paired devices often refuse the first connect while the profiles settle
-                if attempt < BluetoothDevice.CONNECT_ATTEMPTS:
-                    time.sleep(2)
+            connected, errors = self._connect_attempts()
 
-            if not self.connected:
+            if not connected and was_paired and self._looks_like_stale_pairing(errors):
+                last : float = BluetoothDevice._last_repairs.get(self._mac_address)
+                since : float = None if last is None else time.monotonic() - last
+                if since is not None and since < BluetoothDevice.REPAIR_COOLDOWN:
+                    self._log.info(f"Not re-pairing {self.name} again yet ({int(since)}s since the last try)")
+                elif self._repair():
+                    connected, errors = self._connect_attempts()
+
+            if not connected:
                 return False
             self._log.debug(f"Bluetooth connected to : {self.name}")
             return True

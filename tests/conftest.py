@@ -245,6 +245,7 @@ def mock_app(mock_deck, font_config):
     app.is_debug_enabled = True
     app.load_image.return_value = b"\xff\xd8\xff\xe0"  # fake JPEG header
     app.set_button_image.return_value = None
+    app.set_touchscreen_image.return_value = True
     return app
 
 

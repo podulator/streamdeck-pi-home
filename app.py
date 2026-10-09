@@ -94,6 +94,19 @@ class App():
         except:
             pass
 
+    def set_touchscreen_image(self, image: bytes) -> bool:
+        # every write to the deck must hold _deck_lock: images go out as many HID packets, and packets from two
+        # threads interleaving corrupt the JPEG the deck reassembles (ghosted key images, streaky scan lines)
+        if self._destroyed or not self._deck_available():
+            return False
+        try:
+            with self._deck_lock:
+                self._deck.set_touchscreen_image(image, 0, 0, self.screen_width, self.screen_height)
+            return True
+        except Exception as ex:
+            self._log.error(ex)
+            return False
+
     def load_image(self, path: str, size: int = 100) -> bytes:
         try:
             img = Image.new('RGB', (120, 120), color='black')
@@ -160,7 +173,8 @@ class App():
             self._log.debug("Registering deck callbacks...")
             self._deck.set_key_callback(self._key_change_callback)
             self._deck.set_dial_callback(self._dial_change_callback)
-            self._deck.set_brightness(self._brightness)
+            with self._deck_lock:
+                self._deck.set_brightness(self._brightness)
 
         nfc_device: str = self._config.get("nfc_device", None)
         if not nfc_device is None:
@@ -182,10 +196,7 @@ class App():
         if not self._render_lock.acquire(blocking=False):
             return
         try:
-            with self._deck_lock:
-                self._deck.set_touchscreen_image(b, 0, 0, self.screen_width, self.screen_height)
-        except Exception as ex:
-            self._log.error(ex)
+            self.set_touchscreen_image(b)
         finally:
             self._render_lock.release()
 

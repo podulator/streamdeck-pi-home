@@ -149,8 +149,7 @@ class IPlugin(ABC):
             }
 
             b : bytes = self._text_to_image(text, font_size, font_path, bg_color)
-            self._app.deck.set_touchscreen_image(b, 0, 0, self._app.screen_width, self._app.screen_height)
-            success = True
+            success = self._app.set_touchscreen_image(b)
         except Exception as ex:
             self._log.error(ex)
         finally:

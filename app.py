@@ -41,6 +41,10 @@ class App():
         self._help_held : bool = False
         self._help_timer: Optional[threading.Timer] = None
         self._deck_lock: threading.Lock = threading.Lock()
+        # Guards switching the active plugin and calls into it. Deck input, the NFC thread, the idle timeout and
+        # the help timer all touch _active_plugin from different threads. Re-entrant because handlers call back in
+        # (e.g. Settings calling destroy() from a key press). Order: take this before _deck_lock, never after.
+        self._plugin_lock: threading.RLock = threading.RLock()
 
     @property
     def config(self) -> dict:
@@ -335,14 +339,19 @@ class App():
                         self._dim_counter = 0
                         self._dim(brightness_min)
                     
-                    if self._active_plugin is not None:
-                        if self._active_plugin.idle:
-                            self._idle_counter += 1
-                            if self._idle_counter >= idle_step_time:
-                                self._log.debug("Deactivating plugin because of idle timeout")
-                                self._deactivate_plugin()
-                        else:
-                            self._idle_counter = 0
+                    if self._active_plugin is not None and self._plugin_lock.acquire(blocking = False):
+                        # non-blocking: if a key press or NFC tag is busy with a plugin, check again next tick
+                        try:
+                            if self._active_plugin is not None:
+                                if self._active_plugin.idle:
+                                    self._idle_counter += 1
+                                    if self._idle_counter >= idle_step_time:
+                                        self._log.debug("Deactivating plugin because of idle timeout")
+                                        self._deactivate_plugin()
+                                else:
+                                    self._idle_counter = 0
+                        finally:
+                            self._plugin_lock.release()
 
             except Exception as ex:
                 self._log.critical(ex)
@@ -352,6 +361,12 @@ class App():
         self._log.info("Main thread loop exiting")
 
     def _dial_change_callback(self, deck, dial, event, value):
+        if self._destroyed:
+            return
+        with self._plugin_lock:
+            self._handle_dial(deck, dial, event, value)
+
+    def _handle_dial(self, deck, dial, event, value):
         if self._destroyed:
             return
         try:
@@ -428,10 +443,17 @@ class App():
             pass
 
     def _show_help(self) -> None:
-        if self._active_plugin and self._help_held:
-            self._active_plugin.show_help()
+        with self._plugin_lock:
+            if self._active_plugin and self._help_held:
+                self._active_plugin.show_help()
 
     def _key_change_callback(self, deck, key, key_state):
+        if self._destroyed:
+            return
+        with self._plugin_lock:
+            self._handle_key(deck, key, key_state)
+
+    def _handle_key(self, deck, key, key_state):
         if self._destroyed:
             return
         try:
@@ -511,13 +533,14 @@ class App():
         return self._deck is not None
 
     def _deactivate_plugin(self):
-        self._log.info("Returning to Home screen")
-        if self._active_plugin is not None:
-            self._active_plugin.deactivate()
-            self._active_plugin = None
-        self._loop_counter = App.LOOP_COUNTER_MAX
-        self._idle_counter = 0
-        self._default_layout()
+        with self._plugin_lock:
+            self._log.info("Returning to Home screen")
+            if self._active_plugin is not None:
+                self._active_plugin.deactivate()
+                self._active_plugin = None
+            self._loop_counter = App.LOOP_COUNTER_MAX
+            self._idle_counter = 0
+            self._default_layout()
 
     def _nfc_read_callback(self, tags: str):
         if self._destroyed:
@@ -527,6 +550,19 @@ class App():
         if len(tags) == 0:
             return
 
+        # runs on the NFC thread: wait for any key press / dial turn to finish with the plugin first,
+        # but don't hold up shutdown (destroy() joins this thread)
+        while not self._plugin_lock.acquire(timeout = 0.5):
+            if self._destroyed:
+                return
+        try:
+            if self._destroyed:
+                return
+            self._handle_nfc_tags(tags)
+        finally:
+            self._plugin_lock.release()
+
+    def _handle_nfc_tags(self, tags: str):
         self._dim(100)
 
         for tag in tags.split(os.linesep):

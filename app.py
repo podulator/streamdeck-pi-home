@@ -162,9 +162,11 @@ class App():
             self._deck.set_dial_callback(self._dial_change_callback)
             self._deck.set_brightness(self._brightness)
 
-        self._nfc = NfcDevice(device = self.config.get("nfc_device"), read_callback = self._nfc_read_callback)
-        self._nfc_thread = threading.Thread(target=self._nfc.read, daemon=True)
-        self._nfc_thread.start()
+        nfc_device: str = self._config.get("nfc_device", None)
+        if not nfc_device is None:
+            self._nfc = NfcDevice(device = self.config.get("nfc_device"), read_callback = self._nfc_read_callback)
+            self._nfc_thread = threading.Thread(target=self._nfc.read, daemon=True)
+            self._nfc_thread.start()
 
         self._default_layout()
 

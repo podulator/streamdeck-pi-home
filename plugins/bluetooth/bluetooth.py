@@ -33,6 +33,7 @@ class BluetoothPlugin(IPlugin):
         self._running_as_daemon : bool = False
         self._bt : BluetoothManager = BluetoothManager(app, self._callback)
         self._notify_timer : threading.Timer = None
+        self._connect_thread : threading.Thread = None
         self._help_message = "Bluetooth plugin\nBack | Status | Scan | Power\nForget | Info | Toggle Auto | N/A"
 
     def run_as_daemon(self) -> None:
@@ -41,17 +42,18 @@ class BluetoothPlugin(IPlugin):
         try:
             self._running_as_daemon = True
             auto_connect : bool = self._config.get("auto-connect", False)
-            allowed_devices : list[str] = self._config.get("allowed-devices", None)
             preferred_device : str = self._config.get("preferred-device", None)
+            # copy, so the preferred device is not written back into the saved config
+            allowed_devices : list[str] = list(self._config.get("allowed-devices", None) or [])
 
             if auto_connect and allowed_devices:
                 if preferred_device:
-                    allowed_devices.insert(0, preferred_device)
+                    allowed_devices = [preferred_device] + [d for d in allowed_devices if d != preferred_device]
                 # we might have enough info to auto start
                 self._bt.initialize()
                 if self._bt.controller is not None and self._bt.controller.powered:
                     self._log.debug("We have a powered controller, good to go")
-                    threading.Thread(target = self._bt.daemon_connect, args=(allowed_devices,)).start()
+                    threading.Thread(target = self._bt.daemon_connect, args=(allowed_devices,), daemon = True).start()
                 else:
                     self._log.debug("We don't have a valid controller")
         except Exception as ex:
@@ -104,7 +106,9 @@ class BluetoothPlugin(IPlugin):
                     self._bt.threaded_scan()
                 self._update_buttons()
             case BluetoothPlugin.Buttons.ON:
-                if self._bt.controller.powered:
+                if self._bt.controller is None:
+                    self._render("Bluetooth\nNo controller found")
+                elif self._bt.controller.powered:
                     self._bt.controller.power_off()
                 else:
                     self._bt.controller.power_on()
@@ -124,7 +128,7 @@ class BluetoothPlugin(IPlugin):
                     self._render(msg)
                 pass
             case BluetoothPlugin.Buttons.AUTO:
-                self._config["auto-connect"] = not self._config["auto-connect"]
+                self._config["auto-connect"] = not self._config.get("auto-connect", False)
                 self._update_buttons()
                 pass
             case _:
@@ -164,15 +168,21 @@ class BluetoothPlugin(IPlugin):
                 case BluetoothPlugin.State.CONNECTED:
                     if dial != 0: 
                         return
-                    device : BluetoothDevice = self._bt.devices[self._device_index]
-                    if device is not None:
-                        self._render(f"Bluetooth\nConnecting to\n{device.name}")
-                        self._bt.connect(device)
+                    device : BluetoothDevice = self._selected_device()
+                    if device is None:
+                        return
+                    if self._connect_thread is not None and self._connect_thread.is_alive():
+                        self._render("Bluetooth\nStill connecting...")
+                        return
+                    # pairing a new device can take ~40s, so keep the deck responsive; the manager notifies the result
+                    self._render(f"Bluetooth\nConnecting to\n{device.name}")
+                    self._connect_thread = threading.Thread(target = self._bt.connect, args = (device,), daemon = True)
+                    self._connect_thread.start()
                     self._update_buttons()
                 case BluetoothPlugin.State.DELETING:
                     if dial != 0:
                         return
-                    device = self._bt.devices[self._device_index]
+                    device = self._selected_device()
                     if device is not None:
                         self._render(f"Bluetooth\nForgetting\n{device.name}")
                         self._bt.remove(device)
@@ -182,15 +192,23 @@ class BluetoothPlugin(IPlugin):
         except Exception as ex:
             self._log.error(ex)
 
+    def _selected_device(self) -> BluetoothDevice:
+        devices : list[BluetoothDevice] = self._bt.devices
+        if not devices:
+            return None
+        if self._device_index >= len(devices):
+            self._device_index = 0
+        return devices[self._device_index]
+
     def _show_devices(self):
         if not self._activated: 
             return
 
         try:
-            devices : list[BluetoothDevice] = self._bt.devices
-            if self._device_index > len(devices):
-                self._device_index = 0
-            device : BluetoothDevice = devices[self._device_index]
+            device : BluetoothDevice = self._selected_device()
+            if device is None:
+                self._render("Bluetooth\nNo devices found\nPress Scan")
+                return
             match self._state:
                 case BluetoothPlugin.State.CONNECTED:
                     msg = f"Connect to device\n{device.name}"
@@ -227,6 +245,9 @@ class BluetoothPlugin(IPlugin):
                 self._app.set_button_image(n + 1, self._images[n])
 
             self._update_buttons()
+            if self._bt.controller is None:
+                self._render("Bluetooth\nNo controller found")
+                return
             status : str = "On" if self._bt.controller.powered else "Off"
             if self._bt.connected:
                 self._render(
@@ -236,8 +257,8 @@ class BluetoothPlugin(IPlugin):
                 self._render(
                     f"Bluetooth - Powered {status}\nDisconnected\n"
                 )
-        except:
-            pass
+        except Exception as ex:
+            self._log.error(f"Failed to show default screen :: {ex}")
 
     def _update_buttons(self):
         if not self._activated: 
@@ -257,16 +278,16 @@ class BluetoothPlugin(IPlugin):
             else:
                 self._app.set_button_image(BluetoothPlugin.Buttons.SCAN.value, self._state_images[1])
 
-            if self._bt.controller.powered:
+            if self._bt.controller is not None and self._bt.controller.powered:
                 self._app.set_button_image(BluetoothPlugin.Buttons.ON.value, self._images[BluetoothPlugin.Buttons.ON.value - 1])
             else:
                 self._app.set_button_image(BluetoothPlugin.Buttons.ON.value, self._state_images[2])
 
-            if self._config["auto-connect"]:
+            if self._config.get("auto-connect", False):
                 self._app.set_button_image(BluetoothPlugin.Buttons.AUTO.value, self._images[BluetoothPlugin.Buttons.AUTO.value - 1])
             else:
                 self._app.set_button_image(BluetoothPlugin.Buttons.AUTO.value, self._state_images[3])
 
             self._app.set_button_image(BluetoothPlugin.Buttons.BLANK_1.value, self._images[BluetoothPlugin.Buttons.BLANK_1.value - 1])
-        except:
-            pass
+        except Exception as ex:
+            self._log.error(f"Failed to update buttons :: {ex}")

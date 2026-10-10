@@ -29,6 +29,7 @@ class BluetoothDevice(BluetoothCtlInterface):
         self._mac_address : str = mac_address
         self._connected : bool = False
         self._paired : bool = False
+        self._bonded : bool = False
         self._trusted : bool = False
         self._info : list[str] = None
         self._pairing : bool = False
@@ -51,6 +52,11 @@ class BluetoothDevice(BluetoothCtlInterface):
     def paired(self) -> bool:
         return self._paired
     
+    @property
+    def bonded(self) -> bool:
+        """Paired with a stored link key, so the pairing survives a reboot."""
+        return self._bonded
+
     @property
     def trusted(self) -> bool:
         return self._trusted
@@ -101,6 +107,7 @@ class BluetoothDevice(BluetoothCtlInterface):
             self._info = []
 
             paired: bool = False
+            bonded: bool = False
             trusted: bool = False
             connected: bool = False
 
@@ -117,6 +124,8 @@ class BluetoothDevice(BluetoothCtlInterface):
                         self._fallback_name = line.split(":", 1)[1].strip()
                 elif line.startswith("Paired:"):
                     paired = line.split(":")[1].strip().lower() == "yes"
+                elif line.startswith("Bonded:"):
+                    bonded = line.split(":")[1].strip().lower() == "yes"
                 elif line.startswith("Trusted:"):
                     trusted = line.split(":")[1].strip().lower() == "yes"
                 elif line.startswith("Connected:"):
@@ -129,6 +138,7 @@ class BluetoothDevice(BluetoothCtlInterface):
                         self._info.append(line)
 
             self._paired = paired
+            self._bonded = bonded
             self._trusted = trusted
             self._connected = connected
             return True
@@ -235,10 +245,30 @@ class BluetoothDevice(BluetoothCtlInterface):
             self._log.error(e)
             return False
 
+    def _set_pairable(self, on : bool) -> bool:
+        try:
+            self._run_command(f"pairable {'on' if on else 'off'}")
+            return True
+        except BluetoothError as e:
+            self._log.warning(f"Could not set the adapter pairable {'on' if on else 'off'} : {e}")
+            return False
+
+    def _adapter_pairable(self) -> bool:
+        try:
+            return any(l.strip().lower() == "pairable: yes" for l in self._run_command("show"))
+        except BluetoothError:
+            return False
+
     def pair(self) -> bool:
+        # With the adapter not pairable (BlueZ's default here), an outgoing pair still succeeds, but as
+        # non-bonding: no link key is stored, so the device is unpaired again after every reboot. Make the
+        # adapter pairable only for the pairing; the stored key outlives switching it back.
+        was_pairable : bool = self._adapter_pairable()
         try:
             self._pairing = True
             self._log.info(f"Pairing with {self.name} :: {self.mac_address}")
+            if not was_pairable:
+                self._set_pairable(True)
             try:
                 self._run_command("scan on", BluetoothDevice.PRE_PAIR_SCAN)
             except BluetoothError as e:
@@ -248,11 +278,15 @@ class BluetoothDevice(BluetoothCtlInterface):
             self.refresh()
             if not self.paired:
                 self._log.error(f"Pair command returned but {self.name} is not paired : {result}")
+            elif not self.bonded:
+                self._log.warning(f"Paired with {self.name} but no link key was stored, it will need pairing again after a reboot")
             return self.paired
         except (BluetoothError, Exception) as e:
             self._log.error(e)
             return False
         finally:
+            if not was_pairable:
+                self._set_pairable(False)
             self._pairing = False
 
     def cancel_pairing(self) -> bool:
